@@ -17,8 +17,6 @@ compiler.run((err, stats)=>{
 })
 ```
 
-
-
 ## webpack 启动方式
 
 1. webpack-cli脚手架启动：`webpack ./debug/index.js --config ./debug/webpack.config.js`
