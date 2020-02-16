@@ -231,3 +231,4 @@ const config = {
 }
 ```
 
+我们平时使用npm run dev就是使用webpack-dev-server，将打包的文件放到内存里，然后我们在浏览器预览页面。
