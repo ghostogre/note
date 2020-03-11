@@ -23,6 +23,73 @@ Web Worker 有以下几个使用注意点。
 5. 文件限制
    Worker 线程无法读取本地文件，即不能打开本机的文件系统（file://），它所加载的脚本，必须来自网络。
 
+### 基本用法
+
+主线程采用`new`命令，调用`Worker()`构造函数，新建一个 Worker 线程。Worker()构造函数的参数是一个脚本文件，该文件就是 Worker 线程所要执行的任务。由于 Worker 不能读取本地文件，所以这个脚本必须来自网络。如果下载没有成功（比如404错误），Worker 就会默默地失败。
+
+```javascript
+new Worker(URL, options) // options里可以指定worker的name
+```
+
+然后，主线程调用`worker.postMessage()`方法，向 Worker 发消息。
+
+- `worker.postMessage()`方法的参数，就是主线程传给 Worker 的数据。它可以是各种数据类型，包括二进制数据。
+- `worker.terminate();`：主线程关闭worker
+
+```javascript
+worker.onmessage = function (event) {
+  console.log('Received message ' + event.data);
+  doSomething();
+}
+
+function doSomething() {
+  // 执行任务
+  worker.postMessage('Work done!');
+}
+```
+
+**worker 线程**：Worker 线程内部需要有一个监听函数，监听message事件。
+
+```javascript
+// 写法一
+this.addEventListener('message', function (e) {
+  this.postMessage('You said: ' + e.data);
+}, false);
+
+// 写法二
+addEventListener('message', function (e) {
+  postMessage('You said: ' + e.data);
+}, false);
+```
+
+除了使用`addEventListener()`指定监听函数，也可以使用`onmessage`指定。监听函数的参数是一个事件对象，它的data属性包含主线程发来的数据。`postMessage()`方法用来向主线程发送消息。
+
+`this.close()`用来在线程内部关闭自身。
+
+Worker 内部如果要加载其他脚本，有一个专门的方法`importScripts()`，该方法可以同时加载多个脚本。
+
+```javascript
+importScripts('script1.js', 'script2.js');
+```
+
+主线程可以监听 Worker 是否发生错误。如果发生错误，Worker 会触发主线程的error事件。
+
+```javascript
+worker.onerror(function (event) {
+  console.log([
+    'ERROR: Line ', e.lineno, ' in ', e.filename, ': ', e.message
+  ].join(''));
+});
+
+// 或者
+worker.addEventListener('error', function (event) {
+  // ...
+});
+```
+
+### 使用
+
+有时，浏览器需要轮询服务器状态，以便第一时间得知状态改变。这个工作可以放在 Worker 里面。
 
 ## 时间切片（Time Slicing）
 
