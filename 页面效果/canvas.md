@@ -148,3 +148,11 @@ function getInt(num){
 ```
 
 > 另 for 循环的效率是最高的，感兴趣的可以自行实验。
+
+## 在Worker中使用OffscreenCanvas
+
+OffscreenCanvas，正如它的名字一样，通过将Canvas移出屏幕来解耦了DOM和Canvas API。
+
+Workers 是一个Web版的线程——它允许你在幕后运行你的代码。将你的一部分代码放到Worker中可以给你的主线程更多的空闲时间，这可以提高你的用户体验度。就像其没有DOM一样，直到现在，在Worker中都没有Canvas API。
+
+而OffscreenCanvas并不依赖DOM，所以在Worker中Canvas API可以被某种方法来代替。
