@@ -27,7 +27,7 @@
 - 直接传递对象的`setstate`会被合并成一次
 - 使用函数传递`state`不会被合并
 
-## setState执行过程
+## setState执行
 
 `partialState`：`setState`传入的第一个参数，对象或函数
 
@@ -35,7 +35,7 @@
 
 `isBatchingUpdates`：react用于标识当前是否处于批量更新状态，**所有组件公用**
 
-`dirtyComponent`：当前所有处于待更新状态的组件队列
+`dirtyComponent`：当前所有处于待更新状态的**组件队列**
 
 `transcation`：react的事务机制，在被事务调用的方法外包装n个`waper`对象，并一次执行：`waper.init`、被调用方法、`waper.close`
 
@@ -48,7 +48,7 @@
 3. 如果未处于批量更新状态，将批量更新状态标识设置为true，用事务再次调用前一步方法，保证当前组件加入到了待更新组件队列中。
 4. 调用事务的`waper`方法，遍历待更新组件队列依次执行更新。
 5. 执行生命周期`componentWillReceiveProps`。
-6. 将组件的state暂存队列中的`state`进行合并，获得最终要更新的state对象，并将队列置为空。
+6. 将组件的state暂存队列中的`state`进行合并，获得最终要更新的state对象，并将队列置为空。假如传入`setState`的是函数,那么在这里执行.
 7. 执行生命周期`shouldComponentUpdate`，根据返回值判断是否要继续更新。
 8. 执行生命周期`componentWillUpdate`。
 9. 执行真正的更新，`render`。

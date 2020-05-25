@@ -60,7 +60,7 @@
     "allowSyntheticDefaultImports": true,
     "strict": true,//所有的语法都会进行严格的检查
     "forceConsistentCasingInFileNames": true,//文件名是否区分大小写
-    "module": "esnext",//模块化标准
+    "module": "esnext",//模块化标准，esnext 是一个 JavaScript 库，可以将 ES6 草案规范语法转成今天的 JavaScript 语法
     "moduleResolution": "node",//按照node的规则去找文件
     "resolveJsonModule": true,//是否允许把json文件当做模块进行解析
     "isolatedModules": true,//每个文件需要是一个模块
