@@ -37,6 +37,37 @@
        )
      ```
    
-     - 解决方案：在x触发的`useEffect`里进行优惠券的获取和计算，总价不使用`useState`而不是`useMemo`，在选择购物车商品的时候，在副作用里改变优惠券ID和计算总价。
-     - 触发渲染，说白了就是将这个函数组件的函数，再执行一次
+     - **解决方案**：
+     
+       1. 在购物车选中里触发的`useEffect`里进行优惠券的获取和计算，直接在选中商品触发的`useEffect`里改变优惠券ID和计算总价。这时候总价（xy）不能再使用`useMemo`计算的值，而是作为state值使用。
+     
+       2. **多个`useEffect`的执行顺序是按照代码顺序执行的**，按照顺序编写`useEffect(() => {...}, [x])`和`useEffect(() => {...}, [x, y])`来分离代码，本质上和1 是一样的。
+     
+       3. `useMemo`可以互相依赖，但是存在副作用（例如异步请求）最好使用`useEffect`。
+     
+          ```jsx
+            const [x, setX] = useState(false)
+            const y = useMemo(() => {
+              return !x
+            }, [x])
+            const xy = useMemo(() => {
+              console.log('useMemo xy') // 只会执行一次
+              return x + '|' + y
+            }, [x, y])
+            
+            return (
+            	<>
+                <View>X:{x}</View>
+                <View>Y:{y}</View>
+                <View>XY:{xy}</View>
+                <Button onClick={() => {setX(!x)}}>toggleX</Button>
+              </>
+            )
+          ```
+     
+          
+     
+     - 触发渲染，说白了就是将这个函数组件的函数，再执行一次。
+     
+     - Hooks 允许我们**根据它正在做的事情**而不是生命周期方法名称来拆分代码。React 将按照指定的顺序应用组件使用的每个 effect。
 
