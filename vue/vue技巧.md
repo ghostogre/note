@@ -100,3 +100,58 @@ export default router
 - 过多使用`template`会使代码冗余，杂乱
 
 `VUE`给我们提供了一个`render`函数，我们可以通过这个函数巧妙的解决`template`造成的问题。当逻辑判断较多的时候我们可以考虑使用render函数
+
+### 「高精度全局权限处理」
+
+权限的控制由前端处理的场景很多，例如根据后台返回内容，判断该人是否对此功能有权限，进而去修改元素`v-if / v-show`，这种情况下，当这个功能在多处地方出现，就会导致我们做很多很多不必要的重复代码，如果判断条件繁琐的情况，更加冗余，代码量也会增加很多。因此我们可以造一个小车轮，挂在全局上对权限进行处理
+
+#### 实战 - 处理某按钮显示权限问题
+
+```js
+/* 
+    在项目里新建一个common文件夹用于存放全局 .js 文件
+    这种全局文件夹做法相当普遍，一般项目里都应该有这样一个文件夹来管理全局的东西
+*/
+
+// common/jurisdiction.js  用于存放与权限相关的全局函数/变量
+
+export function checkJurisdiction(key) {
+    // 权限数组
+    let jurisdictionList = ['1', '2', '3', '5']
+    let index = jurisdictionList.indexOf(key)
+    console.log('index:',index)
+    if (index > -1) {
+        // 有权限
+        return true
+    } else {
+        // 无权限
+        return false
+    }
+}
+
+// 将全局权限Js挂载到全局中 
+// main.js
+
+import { checkJurisdiction } from './common/jurisdiction'
+
+// 优雅操作 - VUE自定义指令
+Vue.directive('permission',{
+  inserted(el, binding){
+    // inserted → 元素插入的时候
+    
+    let permission = binding.value // 获取到 v-permission的值
+
+    if(permission){
+      let hasPermission = checkJurisdiction(permission)
+      if(!hasPermission){
+        // 没有权限 移除Dom元素
+        el.parentNode && el.parentNode.removeChild(el)
+      }
+    }else{
+      throw new Error('需要传key')
+    }
+  }
+})
+
+```
+

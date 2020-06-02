@@ -100,3 +100,13 @@
 这两个生命周期中不能调用`setState`。
 
 由上面的流程图很容易发现，在它们里面调用`setState`会造成死循环，导致程序崩溃。
+
+#### vue的批量更新体现
+
+1. Mutation Observer（变动观察器）是监视DOM变动的接口。当DOM对象树发生任何变动时，Mutation Observer会得到通知。
+2. 概念上，它很接近事件。可以理解为，当DOM发生变动会触发Mutation Observer事件。但是，它与事件有一个本质不同：事件是同步触发，也就是说DOM发生变动立刻会触发相应的事件；
+3. Mutation  Observer则是异步触发，DOM发生变动以后，并不会马上触发，而是要等到当前所有DOM操作都结束后才触发。
+4. 这样设计是为了应付DOM变动频繁的情况。
+5. 而Mutation Observer完全不同，只在数个DOM都插入结束后才会触发，而且只触发一次。
+
+vue DOM的视图更新实现，，使用到了ES6的Promise及HTML5的`MutationObserver`，当环境不支持时，使用`setTimeout(fn, 0)`替代。

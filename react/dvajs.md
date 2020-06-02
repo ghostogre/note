@@ -28,6 +28,21 @@ npm install antd babel-plugin-import --save
 }
 ```
 
+```jsx
+// { "libraryName": "antd", style: true }
+// style设置为css就是定位到style/css目录下
+import { Button } from 'antd';
+ReactDOM.render(<Button>xxxx</Button>);
+
+      ↓ ↓ ↓ ↓ ↓ ↓
+
+var _button = require('antd/lib/button');
+require('antd/lib/button/style');
+ReactDOM.render(<_button>xxxx</_button>);
+```
+
+
+
 ## 定义 Model
 
 dva 通过 model 的概念把一个领域的模型管理起来，包含同步更新 state 的 reducers，处理异步逻辑的 effects，订阅数据源的 subscriptions 。
