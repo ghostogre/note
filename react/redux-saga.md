@@ -138,6 +138,7 @@ export function* fetchData(action) {
 
 function* watchFetchData() {
   // 我们发起一个ACTION type = 'FETCH_REQUESTED'
+  // yield* 组合多个 Sagas
   yield* takeEvery('FETCH_REQUESTED', fetchData)
 }
 ```
@@ -227,4 +228,69 @@ function* watchAndLog() {
 
 ### 无阻塞调用
 
-为了表示无阻塞调用，redux-saga 提供了另一个 Effect：[`fork`](http://leonshi.com/redux-saga-in-chinese/docs/api/index.html#forkfn-args)。 当我们 fork 一个 *任务*，任务会在后台启动，调用者也可以继续它自己的流程，而不用等待被 fork 的任务结束。
+为了表示无阻塞调用，redux-saga 提供了另一个 Effect：`fork`。 当我们 fork 一个 *任务*，任务会在后台启动，调用者也可以继续它自己的流程，而不用等待被 fork 的任务结束。
+
+`yield fork` 的返回结果是一个 Task Object。 我们将它们返回的对象赋给一个本地常量 `task`。那个 task 传入给 `cancel` Effect。 如果任务仍在运行，它会被中止。如果任务已完成，那什么也不会发生，取消操作将会是一个空操作（no-op）。如果该任务完成了但是有错误， 那我们什么也没做，因为我们知道，任务已经完成了。
+
+`cancel` Effect 不会粗暴地结束我们的任务，相反它会给予一个机会执行清理的逻辑。 在 `finally` 区块可以处理任何的取消逻辑（以及其他类型的完成逻辑）。由于 finally 区块执行在任何类型的完成上（正常的 return, 错误, 或强制取消），如果你想要为取消作特殊处理，有一个 `cancelled` Effect。
+
+可使用 `yield cancelled()` 来检查 Generator 是否已经被取消。
+
+```js
+import { take, call, put, cancelled } from 'redux-saga/effects'
+import Api from '...'
+
+function* authorize(user, password) {
+  try {
+    const token = yield call(Api.authorize, user, password)
+    yield put({type: 'LOGIN_SUCCESS', token})
+    yield call(Api.storeItem, {token})
+    return token
+  } catch(error) {
+    yield put({type: 'LOGIN_ERROR', error})
+  } finally {
+    if (yield cancelled()) {
+      // ... put special cancellation handling code here
+    }
+  }
+}
+```
+
+# 同时执行多个任务
+
+```js
+import { call } from 'redux-saga/effects'
+
+// 正确写法, effects 将会同步执行
+const [users, repos] = yield [
+  call(fetch, '/users'),
+  call(fetch, '/repos')
+]
+```
+
+## race
+
+`race` Effect 提供了一个方法，在多个 Effects 之间触发一个竞赛（race）。`race` 的另一个有用的功能是，它会自动取消那些失败的 Effects。
+
+```js
+import { race, take, call } from 'redux-saga/effects'
+
+function* backgroundTask() {
+  while (true) { /* 关闭时抛出关闭错误消息 */ }
+}
+
+function* watchStartBackgroundTask() {
+  while (true) {
+    yield take('START_BACKGROUND_TASK')
+    yield race({
+      task: call(backgroundTask),
+      cancel: take('CANCEL_TASK')
+    })
+  }
+}
+```
+
+
+
+
+
