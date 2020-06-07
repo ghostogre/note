@@ -290,7 +290,10 @@ function* watchStartBackgroundTask() {
 }
 ```
 
+# 取消任务
 
+一旦任务被 fork，可以使用 `yield cancel(task)` 来中止任务执行。取消正在运行的任务。
 
+取消 `bgSyncTask` 将会导致 Generator 跳进 finally 区块。可使用 `yield cancelled()` 来检查 Generator 是否已经被取消。
 
-
+取消正在执行的任务，也将同时取消被阻塞在当前 Effect 中的任务。也就是说，取消可以不断的往下传播。

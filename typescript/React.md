@@ -103,3 +103,43 @@ yarn add @types/react-dom
 ```
 
 无论何时，你安装一个依赖时，都应该试着安装 `@types` 包，或者你想查看是否有被支持的类型，你可以在 [TypeSearch](https://microsoft.github.io/TypeSearch/) 网站上查看。
+
+## 使用 TSLint 规范代码
+
+可以通过 `tslint.json` 文件配置 TSLint
+
+```javascript
+{
+    "defaultSeverity": "error",
+    "extends": ["tslint:latest", "tslint-react"],
+    "jsRules": {},
+    "rules": {
+      // 用单引号, 但是在 JSX 中，强制使用双引号
+      "quotemark": [true, "single", "jsx-double"],
+      // 我更喜欢没有分号 :)
+      "semicolon": [true, "never"],
+      // 这个规则使每个接口以 I 开头，这点我不喜欢
+      "interface-name": [true, "never-prefix"],
+      // 这个规则强制对象中的 key 按照字母顺序排列 
+      "object-literal-sort-keys": false
+    },
+    "rulesDirectory": []
+}
+```
+
+可以运行 `tslint --project tsconfig.json` 规范我的项目
+
+# create-react-app
+
+```bash
+> npx create-react-app react-typescript-demo --typescript 
+```
+
+### react-app-env.d.ts声明文件
+
+```ts
+/// <reference types="react-scripts" />
+```
+
+三斜线引用告诉编译器在编译过程中要引入的额外的文件。
+
