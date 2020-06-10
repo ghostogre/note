@@ -1,5 +1,27 @@
 ## setState是同步还是异步的，为什么有的时候不能立即拿到更新结果而有的时候可以?
 
+因为 state 的更新会触发 re-rendering，而 re-rendering （diff）代价昂贵，短时间内反复进行渲染在性能上肯定是不可取的。所以，React 采用 batching 思想，它会 batches 一系列连续的 state 更新，而只触发一次 re-render。
+
+**应该如何优雅地处理潜在的异步操作，规避上述问题呢？**
+
+- **方法一：**常见的一种做法便是将一个回调函数传入 setState 方法中。即 setState 著名的函数式用法。这样能保证即便在更新被 batched 时，也能访问到预期的 state 或 props。（后面会解释这么做的原理）
+
+- **方法二：**另外一个常见的做法是需要在 setState 更新之后进行的逻辑（比如上述的连续第二次 count + 1），封装到一个函数中，并作为第二个参数传给 setState。这段函数逻辑将会在更新后由 React 代理执行。即：
+
+  `setState(updater, [callback])`
+
+- **方法三：**把需要在 setState 更新之后进行的逻辑放在一个合适的生命周期 hook 函数中，比如 componentDidMount 或者 componentDidUpdate 也当然可以解决问题。
+
+### 为什么 setState 不返回一个promise
+
+1. 解决异步带来的困扰方案其实很多，比如合适的钩子。
+2. 在 batching 策略是否调整之前，**盲目的扩充 setState 接口只会是一个短视的行为。**
+3. Redux 原作者认为，以他的经验来看，任何需要使用 setState 第二个参数 callback 的场景，都可以使用生命周期函数 componentDidUpdate (componentDidMount) 来复写
+4. 在一些极端场景下，如果开发者确实需要同步的处理方式，比如如果我想在某 DOM 元素挂载到屏幕之前做一些操作，promises 这种方案便不可行，因为 Promises 总是异步的。
+5. 如果每个 setState 都返回一个 promises，也会带来性能影响：对于 React 来说，setState 将必然产生一个 callback，这些 **callbacks 需要合理储存**，以便在合适时间来触发。
+
+解决 setState 异步带来的问题，有很多方式能够完美优雅地解决。在这种情况下，直接让 setState 返回 promise 是画蛇添足的。另外，这样也会引起性能问题等等。
+
 ### 钩子函数和React合成事件中的`setState`
 
 - 调用`setState`不会立即更新
@@ -97,9 +119,13 @@
 
 ## `componentWillUpdate` `componentDidUpdate`
 
-这两个生命周期中不能调用`setState`。
+这两个生命周期中不能调用`setState`。在它们里面调用`setState`会造成死循环，导致程序崩溃。
 
-由上面的流程图很容易发现，在它们里面调用`setState`会造成死循环，导致程序崩溃。
+## 结论
+
+- 在合成事件, 生命周期函数中的setState是异步批量更新的, 不能立即拿到更新的结果, 多次setState只会走一次render
+- 在`setTimeOut`, `setInterval`, 原生事件, `Promise`中的setState是同步逐个更新的, 可以立即拿到更新的state, 而且每次setState都会走一次render
+- 所谓的异步只是批量更新而已。**真正异步回调和原生事件回调中的setState不是批量更新的**。
 
 #### vue的批量更新体现
 

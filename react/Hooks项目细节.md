@@ -43,7 +43,7 @@
      
        2. **多个`useEffect`的执行顺序是按照代码顺序执行的**，按照顺序编写`useEffect(() => {...}, [x])`和`useEffect(() => {...}, [x, y])`来分离代码，本质上和1 是一样的。
      
-       3. `useMemo`可以互相依赖，但是存在副作用（例如异步请求）最好使用`useEffect`。
+       3. `useMemo`可以互相依赖，但是存在副作用（例如异步请求）最好使用`useEffect`。我们可以使用例如`const summary = useMemo(() => {...}, [carts]); const deductSummary = useMemo(() => {...}, [summary])`
      
           ```jsx
             const [x, setX] = useState(false)

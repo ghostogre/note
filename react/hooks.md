@@ -101,6 +101,15 @@ const [state, dispatch] = useReducer(reducer, initialArg, init);
 
 `useCallback(fn, deps)` 相当于 `useMemo(() => fn, deps)`。
 
+内联函数很“便宜”，所以在每次渲染时重新创建函数不是问题，每个组件有几个内联函数是可以接受的。
+
+在某些情况下，你需要保留一个函数的一个实例:
+
+- 包装在 `React.memo()`（或 `shouldComponentUpdate` ）中的组件接受回调prop。
+- 当函数用作其他hooks的依赖项时 `useEffect(...，[callback])`
+
+有种说法是，只有 inline 函数需要，另外要必须配合 memo 使用才可能会优化性能，否则可能造成负优化。
+
 ## Hook 使用规则
 
 Hook 就是 JavaScript 函数，但是使用它们会有两个额外的规则：
