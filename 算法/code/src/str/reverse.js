@@ -1,4 +1,4 @@
-const reverse = (num) => {
+export default function (num) {
   if (typeof num !== 'number') {
     return 0
   }
@@ -14,5 +14,3 @@ const reverse = (num) => {
 
   return result
 }
-
-console.log(reverse(987654321))
