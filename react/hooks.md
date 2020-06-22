@@ -33,6 +33,30 @@ react规定我们必须把hooks写在函数的最外层，不能写在ifelse等�
 
 - `setCount(c => c + 1);`
 
+### Hook state粒度
+
+把所有 state 都放在同一个 `useState` 调用中，或是每一个字段都对应一个 `useState` 调用，这两方式都能跑通。当你在这两个极端之间找到平衡，然后把相关 state 组合到几个独立的 state 变量时，组件就会更加的可读。
+
+**当创建初始 state 很昂贵时：**
+
+```js
+function Table(props) {
+  // ⚠️ createRows() 每次渲染都会被调用
+  const [rows, setRows] = useState(createRows(props.count));
+  // ...
+}
+```
+
+为避免重新创建被忽略的初始 state，我们可以传一个 **函数** 给 `useState`：
+
+```js
+function Table(props) {
+  // ✅ createRows() 只会被调用一次
+  const [rows, setRows] = useState(() => createRows(props.count));
+  // ...
+}
+```
+
 ## useEffect
 
 在 React 组件中执行过数据获取、订阅或者手动修改过 DOM。我们统一把这些操作称为“副作用”，或者简称为“作用”。
@@ -74,6 +98,34 @@ useEffect(() => {
 }, []);
 ```
 
+**尽量将函数写在 `useEffect` 内部**
+
+为了避免遗漏依赖，必须将函数写在 `useEffect` 内部，这样 [eslint-plugin-react-hooks](https://www.npmjs.com/package/eslint-plugin-react-hooks) 才能通过静态分析补齐依赖项：
+
+```jsx
+function Counter() {
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    function getFetchUrl() {
+      return "https://v?query=" + count;
+    }
+
+    getFetchUrl();
+  }, [count]);
+
+  return <h1>{count}</h1>;
+}
+```
+
+`getFetchUrl` 这个函数依赖了 `count`，而如果将这个函数定义在 `useEffect` 外部，无论是机器还是人眼都难以看出 `useEffect` 的依赖项包含 `count`。
+
+`useEffect` 对业务的抽象非常方便：
+
+1. 依赖项是查询参数，那么 `useEffect` 内可以进行取数请求，那么只要查询参数变化了，列表就会自动取数刷新。注意我们将取数时机从触发端改成了接收端。
+2. 当列表更新后，重新注册一遍拖拽响应事件。也是同理，依赖参数是列表，只要列表变化，拖拽响应就会重新初始化，这样我们可以放心的修改列表，而不用担心拖拽事件失效。
+3. 只要数据流某个数据变化，页面标题就同步修改。同理，也不需要在每次数据变化时修改标题，而是通过 `useEffect` “监听” 数据的变化，这是一种 **“控制反转”** 的思维。
+
 ## useRef
 
 与 class 组件进行比较，`useRef` 的作用相对于让你在 class 组件的 `this` 上追加属性。
@@ -85,7 +137,29 @@ const components = () => {
         ref.current = state // ref相当于this
     })
 }
+
+// 或者
+export default function HookDemo() {
+  const [count] = useState({ count: 1 });
+  
+  const countRef = useRef(count);
+
+  return (
+    <div>
+      {count.count}
+      <button onClick={() => { countRef.current.count = 10; }}>
+        改变ref
+      </button>
+    </div>
+  );
+}
 ```
+
+**`useRef` 保存的变量不会随着每次数据的变化重新生成，而是保持在我们最后一次赋值时的状态，依靠这种特性，再配合 `useCabllback` 和 `useEffect` 我们可以实现 `preProps/preState`的功能。**
+
+`useRef` 尽量少用，大量 Mutable 的数据会影响代码的可维护性。
+
+但对于不需重复初始化的对象推荐使用 `useRef` 存储
 
 ## useReducer
 
@@ -95,20 +169,24 @@ const [state, dispatch] = useReducer(reducer, initialArg, init);
 
 `useState` 的替代方案。它接收一个形如 `(state, action) => newState` 的 reducer，并返回当前的 state 以及与其配套的 `dispatch` 方法。
 
+其本质是让函数与数据解耦，**函数只管发出指令，而不需要关心使用的数据被更新时，需要重新初始化自身。**
+
+局部状态不推荐使用 `useReducer` ，会导致函数内部状态过于复杂，难以阅读。 `useReducer` 建议在多组件间通信时，结合 `useContext` 一起使用。
+
 ## useCallback
 
 把内联回调函数及依赖项数组作为参数传入 `useCallback`，它将返回该回调函数的 memoized 版本，该回调函数仅在某个依赖项改变时才会更新。当你把回调函数传递给经过优化的并使用引用相等性去避免非必要渲染（例如 `shouldComponentUpdate`）的子组件时，它将非常有用。
 
 `useCallback(fn, deps)` 相当于 `useMemo(() => fn, deps)`。
 
-内联函数很“便宜”，所以在每次渲染时重新创建函数不是问题，每个组件有几个内联函数是可以接受的。
+**内联函数**很“便宜”，所以在每次渲染时重新创建函数不是问题，每个组件有几个内联函数是可以接受的。
 
 在某些情况下，你需要保留一个函数的一个实例:
 
 - 包装在 `React.memo()`（或 `shouldComponentUpdate` ）中的组件接受回调prop。
 - 当函数用作其他hooks的依赖项时 `useEffect(...，[callback])`
 
-有种说法是，只有 inline 函数需要，另外要必须配合 memo 使用才可能会优化性能，否则可能造成负优化。
+有种说法是，**只有 inline 函数需要，另外要必须配合 memo 使用才可能会优化性能，否则可能造成负优化**。
 
 ## Hook 使用规则
 
@@ -129,7 +207,7 @@ Hook 是一种复用*状态逻辑*的方式，它不复用 state 本身。事实
 
 使用 ESLint 插件 `eslint-plugin-react-hooks@>=2.4.0`。
 
-## 使用 useMemo/useCallback
+## 使用 useMemo
 
 useMemo 的含义是，通过一些变量计算得到新的值。通过把这些变量加入依赖 deps（useEffect的第二个参数），当 deps 中的值均未发生变化时，跳过这次计算。useMemo 中传入的函数，将在 render 函数调用过程被同步调用。
 
@@ -150,10 +228,15 @@ const fn = useMemo(() => () => {
     // do something
 }, [a, b]);
 
+// 用 React.useMemo 优化渲染性能
+// 跳过一次子节点的昂贵的重新渲染
+// 注意这种方式在循环中是无效的，因为 Hook 调用 不能 被放在循环中。
 const memoComponentsA = useMemo(() => (
     <ComponentsA {...someProps} />
 ), [someProps]);
 ```
+
+> 推荐使用 `React.useMemo` 而不是 `React.memo`，因为在组件通信时存在 `React.useContext` 的用法，这种用法会使所有用到的组件重渲染，只有 `React.useMemo` 能处理这种场景的按需渲染。
 
 useMemo 的目的其实是尽量使用缓存的值。
 
@@ -196,6 +279,24 @@ function Example(props) {
 }
 ```
 
+记住，传给 `useMemo` 的函数是在渲染期间运行的。不要在其中做任何你通常不会在渲染期间做的事。
+
+适用的场景：
+
+- 有些计算开销很大，我们就需要「记住」它的返回值，避免每次 render 都去重新计算。
+- 由于值的引用发生变化，导致下游组件重新渲染，我们也需要「记住」这个值。
+
+假如计算开销不是很大，我们可以去掉useMemo
+
+```ts
+const [count, setCount] = useState<number>(0)
+const [score, setScore] = useState<number>(1)
+
+const sum = count + score
+```
+
+
+
 ## 惰性初始值
 
 #### 惰性初始 state
@@ -223,3 +324,77 @@ useSomething = (inputCount) => {
 ```
 
 `setCount`后，React 会立即退出当前的 render 并用更新后的 state 重新运行 render 函数。建议将当前值与上一次的值进行比较，只有确定发生变化时执行 `setCount` 。
+
+> StrictMode 在 development mode 下一些 hooks 的回调会调用两次以确保没有副作用。
+
+### `getDerivedStateFromProps`
+
+把 prop 上一轮的值存在一个 state 变量中以便比较。
+
+### 依赖列表
+
+**只有** 当函数（以及它所调用的函数）不引用 props、state 以及由它们衍生而来的值时，你才能放心地把它们从依赖列表中省略。
+
+**推荐把使用到的函数移动到你的 effect \*内部\***。这样就能很容易的看出来你的 effect 使用了哪些 props 和 state，并确保它们都被声明了
+
+**如果处于某些原因你 \*无法\* 把一个函数移动到 effect 内部，还有一些其他办法：**
+
+1. **可以尝试把那个函数移动到你的组件之外**。
+2. 如果你所调用的方法是一个纯计算，并且可以在渲染时调用，你可以 **转而在 effect 之外调用它，**并让 effect 依赖于它的返回值。
+3. 万不得已的情况下，你可以 **把函数加入 effect 的依赖但 \*把它的定义包裹\*** 进 [`useCallback`](https://zh-hans.reactjs.org/docs/hooks-reference.html#usecallback) Hook。这就确保了它不随渲染而改变
+
+传入空的依赖数组 `[]`，意味着该 hook 只在组件挂载时运行一次，并非重新渲染时。
+
+当 effect 执行时，我们会创建一个闭包，并将 state 的值被保存在该闭包当中。每次执行都是在这个初始值上面进行，假如我们需要设置一个定时器肯定是需要在第一次渲染执行而不是每一次（空的依赖数组），但是如果定时器里面修改state的话，我们就需要在上一次state的值上面进行操作。**函数式更新**就能解决这个问题，当然我们还可以使用`useRef`来处理。
+
+#### 总结
+
+- 依赖数组依赖的值最好不要超过 3 个，否则会导致代码会难以维护。
+- 如果发现依赖数组依赖的值过多，我们应该采取一些方法来减少它。
+  - 去掉不必要的依赖。
+  - 将 Hook 拆分为更小的单元，每个 Hook 依赖于各自的依赖数组。
+  - 通过合并相关的 state，将多个依赖值聚合为一个。
+  - 通过 `setState` 回调函数获取最新的 state，以减少外部依赖。
+  - 通过 `ref` 来读取可变变量的值，不过需要注意控制修改它的途径。
+
+### Hook 会因为在渲染时创建函数而变慢吗？ 
+
+不会。在现代浏览器中，闭包和类的原始性能只有在极端场景下才会有明显的差别。
+
+传统上认为，在 React 中使用内联函数对性能的影响，与每次渲染都传递新的回调会如何破坏子组件的 `shouldComponentUpdate` 优化有关。
+
+- [`useCallback`](https://zh-hans.reactjs.org/docs/hooks-reference.html#usecallback) Hook 允许你在重新渲染之间保持对相同的回调引用以使得 `shouldComponentUpdate` 继续工作
+- [`useMemo`](https://zh-hans.reactjs.org/docs/hooks-faq.html#how-to-memoize-calculations) Hook 使得控制具体子节点何时更新变得更容易，减少了对纯组件的需要。
+- [`useReducer`](https://zh-hans.reactjs.org/docs/hooks-reference.html#usereducer) Hook 减少了对深层传递回调的依赖
+
+### 如何避免向下传递回调？
+
+在大型的组件树中，我们推荐的替代方案是通过 context 用 [`useReducer`](https://zh-hans.reactjs.org/docs/hooks-reference.html#usereducer) 往下传一个 `dispatch` 函数
+
+```jsx
+const TodosDispatch = React.createContext(null);
+
+function TodosApp() {
+  // 提示：`dispatch` 不会在重新渲染之间变化
+  const [todos, dispatch] = useReducer(todosReducer);
+
+  return (
+    <TodosDispatch.Provider value={dispatch}>
+      <DeepTree todos={todos} />
+    </TodosDispatch.Provider>
+  );
+}
+```
+
+## 底层原理 
+
+### React 是如何把对 Hook 的调用和组件联系起来的？ 
+
+React 保持对当先渲染中的组件的追踪。多亏了 [Hook 规范](https://zh-hans.reactjs.org/docs/hooks-rules.html)，我们得知 Hook 只会在 React 组件中被调用（或自定义 Hook —— 同样只会在 React 组件中被调用）。
+
+每个组件内部都有一个「记忆单元格」列表。它们只不过是我们用来存储一些数据的 JavaScript 对象。当你用 `useState()` 调用一个 Hook 的时候，它会读取当前的单元格（或在首次渲染时将其初始化），然后把指针移动到下一个。这就是多个 `useState()` 调用会得到各自独立的本地 state 的原因。
+
+### 
+
+
+
