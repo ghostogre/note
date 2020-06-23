@@ -292,7 +292,7 @@ function Example(props) {
 const [count, setCount] = useState<number>(0)
 const [score, setScore] = useState<number>(1)
 
-const sum = count + score
+const sum = count + score // 每次重新渲染都会执行，state改变就会触发重新渲染
 ```
 
 
