@@ -155,3 +155,188 @@ Vue.directive('permission',{
 
 ```
 
+#### `hookEvent`监听生命周期函数
+
+```js
+	mounted() {
+    this.chart = echarts.init(this.$el)
+    // 请求数据，赋值数据 等等一系列操作...
+    
+    // 监听窗口发生变化，resize组件
+    window.addEventListener('resize', this.$_handleResizeChart)
+    // 通过hook监听组件销毁钩子函数，并取消监听事件
+    this.$once('hook:beforeDestroy', () => {
+      window.removeEventListener('resize', this.$_handleResizeChart)
+    })
+  }
+```
+
+*在`Vue`组件中，可以用过`$on`,`$once`去监听所有的生命周期钩子函数，如监听组件的`updated`钩子函数可以写成 `this.$on('hook:updated', () => {})`*
+
+#### 外部监听生命周期函数
+
+例如，需要监听第三方组件数据的变化，但是组件又没有提供`change`事件。
+
+```vue
+<template>
+  <!--通过@hook:updated监听组件的updated生命钩子函数-->
+  <!--组件的所有生命周期钩子都可以通过@hook:钩子函数名 来监听触发-->
+  <custom-select @hook:updated="$_handleSelectUpdated" />
+</template>
+```
+
+### 小项目用`Vue.observable`手写一个状态管理
+
+```js
+import Vue from 'vue'
+
+// 通过Vue.observable创建一个可响应的对象
+export const store = Vue.observable({
+  userInfo: {},
+  roleIds: []
+})
+
+// 定义 mutations, 修改属性
+export const mutations = {
+  setUserInfo(userInfo) {
+    store.userInfo = userInfo
+  },
+  setRoleIds(roleIds) {
+    store.roleIds = roleIds
+  }
+}
+```
+
+```vue
+<template>
+  <div>
+    {{ userInfo.name }}
+  </div>
+</template>
+<script>
+import { store, mutations } from '../store'
+export default {
+  computed: {
+    userInfo() {
+      return store.userInfo
+    }
+  },
+  created() {
+    mutations.setUserInfo({
+      name: '子君'
+    })
+  }
+}
+</script>
+```
+
+### 开发全局组件，你可能需要了解一下`Vue.extend`
+
+`Vue.extend`是一个全局Api。
+
+用`Vue.extend` + 单例模式（同时只能展示一个加载样式）去实现一个`loading`。
+
+```js
+// loading/index.js
+import Vue from 'vue'
+import LoadingComponent from './loading.vue'
+
+// 通过Vue.extend将组件包装成一个子类
+const LoadingConstructor = Vue.extend(LoadingComponent)
+
+let loading = undefined
+
+LoadingConstructor.prototype.close = function() {
+  // 如果loading 有引用，则去掉引用
+  if (loading) {
+    loading = undefined
+  }
+  // 先将组件隐藏
+  this.visible = false
+  // 延迟300毫秒，等待loading关闭动画执行完之后销毁组件
+  setTimeout(() => {
+    // 移除挂载的dom元素
+    if (this.$el && this.$el.parentNode) {
+      this.$el.parentNode.removeChild(this.$el)
+    }
+    // 调用组件的$destroy方法进行组件销毁
+    this.$destroy()
+  }, 300)
+}
+
+const Loading = (options = {}) => {
+  // 如果组件已渲染，则返回即可
+  if (loading) {
+    return loading
+  }
+  // 要挂载的元素
+  const parent = document.body
+  // 组件属性
+  const opts = {
+    text: '',
+    ...options
+  }
+  // 通过构造函数初始化组件 相当于 new Vue()
+  const instance = new LoadingConstructor({
+    el: document.createElement('div'),
+    data: opts
+  })
+  // 将loading元素挂在到parent上面
+  parent.appendChild(instance.$el)
+  // 显示loading
+  Vue.nextTick(() => {
+    instance.visible = true
+  })
+  // 将组件实例赋值给loading
+  loading = instance
+  return instance
+}
+
+export default Loading
+```
+
+### 函数式组件
+
+纯展示性的业务组件
+
+```jsx
+export default {
+  // 通过配置functional属性指定组件为函数式组件
+  functional: true,
+  // 组件接收的外部属性
+  props: {
+    avatar: {
+      type: String
+    }
+  },
+  /**
+   * 渲染函数
+   * @param {*} h
+   * @param {*} context 函数式组件没有this, props, slots等都在context上面挂着
+   */
+  render(h, context) {
+    const { props } = context
+    if (props.avatar) {
+      return <img src={props.avatar}></img>
+    }
+    return <img src="default-avatar.png"></img>
+  }
+}
+```
+
+#### 为什么使用函数式组件
+
+1. 最主要最关键的原因是函数式组件不需要实例化，无状态，没有生命周期，所以渲染性能要好于普通组件
+2. 函数式组件结构比较简单，代码结构更清晰
+
+##### 函数式组件与普通组件的区别
+
+1. 函数式组件需要在声明组件是指定functional
+2. 函数式组件不需要实例化，所以没有`this`,`this`通过`render`函数的第二个参数来代替
+3. 函数式组件没有生命周期钩子函数，不能使用计算属性，watch等等
+4. 函数式组件不能通过$emit对外暴露事件，调用事件只能通过`context.listeners.click`的方式调用外部传入的事件
+5. 因为函数式组件是没有实例化的，所以在外部通过`ref`去引用组件时，实际引用的是`HTMLElement`
+6. 函数式组件的`props`可以不用显示声明，所以没有在`props`里面声明的属性都会被自动隐式解析为`prop`,而普通组件所有未声明的属性都被解析到`$attrs`里面，并自动挂载到组件根元素上面(可以通过`inheritAttrs`属性禁止)
+
+
+
