@@ -114,3 +114,36 @@
 
    使用&可以减少最终css的嵌套问题，sass的嵌套写法是为了更好的可读性和减少写css的重复。
 
+3. 项目里的自定义的Img组件其实是一个块包裹Image。利用`onError`和`onLoad`能够实现报错时候显示错误图标和图片加载完成前的过渡效果（平时我们加载图片都是从上到下，图片逐渐出现）。使用`Img.externalClasses = ['custom-class']`使用外部样式。如果是margin之类的样式类，可以直接使用外层包裹的容器上设置。
+
+4. enterList导航一般都是图标大小长宽比都是一致的，给图片同样的大小就可以了。因为图标不同所以图片有很多透明留白的来保证图片宽高比一样，在设计稿上因为是透明的看起来非透明部分是宽高比不一样的。最好是切图也切在设计稿上这样可以看得出来图标的大小。
+
+5. 有的时候需要给使用的组件再做一层封装才能符合我们的需求，这时候传给组件的props要多经历一层传递才能到组件的props上
+
+   > `keyof`：typescript，返回接口的key值的组合类型
+
+6. 页面中有很多卡片式的楼层结构，可以写成通用的组件。卡片标题写成如下的组件（标题的结构出现率很高，可以复用。本项目里卡片标题不一定在卡片顶部，所以不能直接把卡片写成组件），卡片背景色，阴影等写进一个全局类里。
+
+   ```jsx
+           <View className='cardTitle'>
+               <View className='cardTitle--left'>
+                   <Text className='cardTitle--left_title'>{title}</Text>
+                   {
+                       children || (
+                           <Text className='cardTitle--left_subtitle'>{subtitle}</Text>
+                       )
+                   }
+               </View>
+               {
+                   showMore && (
+                       <View className='cardTitle--right'>
+                           <Text>更多</Text>
+                           <AtIcon value='chevron-right' size={12} />
+                       </View>
+                   )
+               }
+           </View>
+   ```
+
+7. 使用`repeat-linear-gradient`可以实现斑马纹的进度条效果，但是倾斜的斑马纹用这种方法实现，在微信开发者工具里会出现明显的锯齿。所以还是该用斑马纹的图片作为`backgroundd-image`来实现。
+
