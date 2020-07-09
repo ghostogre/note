@@ -204,6 +204,8 @@
 
    - 方案三：使用`usePageScroll`钩子（相当于onPageScroll事件）,滚动的时候根据`scrollTop`进行判断显示或者隐藏。
 
+10. `formId`只能在真机里获取，开发工具里永远是undefined。
+
 
 
 

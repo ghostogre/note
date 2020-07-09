@@ -142,7 +142,9 @@ useEffect(() => {
 
 ## useRef
 
-与 class 组件进行比较，`useRef` 的作用相对于让你在 class 组件的 `this` 上追加属性。
+与 class 组件进行比较，`useRef` 的作用相对于让你在 class 组件的 `this` 上追加属性（实例变量）。用于保存与渲染无关的变量（例如点击一个商品列表弹窗，需要保持一个index或者id，弹框只有在确定按钮点击的时候才用这个变量去进行请求操作，官方例子用它来保存定时器ID进行定时器的清除）
+
+避免在渲染过程中设置引用 - 这可能会导致令人惊讶的行为。只在事件处理程序和 effects 中修改引用。
 
 ```jsx
 const components = () => {
@@ -157,6 +159,7 @@ export default function HookDemo() {
   const [count] = useState({ count: 1 });
   
   const countRef = useRef(count);
+  // countRef.current被初始化成count
 
   return (
     <div>
@@ -309,8 +312,6 @@ const [score, setScore] = useState<number>(1)
 
 const sum = count + score // 每次重新渲染都会执行，state改变就会触发重新渲染
 ```
-
-
 
 ## 惰性初始值
 
