@@ -173,3 +173,40 @@
 
 8. Taro 不能使用三元运算符去返回children（因为 Taro 最终转换成字符串，三元运算符里用children他不知道这是个变量还是其他什么的）
 
+9. 吸顶效果：当红包倒计时划过页面的时候，实现一个吸顶效果。难点：红包倒计时在一个卡片中，而且样式与设计稿中吸顶红包倒计时不同，所以需要实现的是一个滚动然后展示吸顶navbar的效果。
+
+   - 方案一：使用`intersectionObserver`这个API，在微信小程序里我们可以使用这个 api 实现按需渲染和资源回收。但是在支付宝小程序使用中我们发现有时候这个api并不符合我们的使用预期，而且如果在useEffect（依赖数组为空数组），useDidShow等钩子里永远只会触发一次监听回调。向上滚动不会触发，需要多次向上滚动才会触发监听回调。
+
+     因为本身`intersectionObserver`是在一点时间间隔内执行，做按需渲染很合适，但是类似吸顶，看上去会有延迟，效果不是很好。
+
+     在h5中使用`IntersectionObserver`，上下滚动都是会触发监听回调的。
+
+     > 支付宝小程序中使用`intersectionObserver`：
+     >
+     > ```js
+     > // 链式调用，必须写relativeToViewport，observe的回调监听才会生效
+     > // 组件中使用的时候，需要给createIntersectionObserver传入this(函数组件也是)
+     > Taro.createIntersectionObserver().relativeToViewport({ top: 0 }).observe('className', function () {
+     >   // 回调
+     > })
+     > ```
+
+   - 方案二：使用`postion:sticky`，把卡片里的红包倒计时设置成`sticky`，滚动的时候让卡片里的红包倒计时吸顶，而不是再去控制一个吸顶栏的显示与否。
+
+     **使用条件**：
+
+     1. 父元素不能设置 `overflow:hidden;` 或者 `overflow:auto;`  属性；
+     2. 必须制定 `top`、`bottom` 、`left` 、 `right` 4个值之一，否则只会处于相对定位；
+     3. 父元素的高度不能低于sticky 元素的高度；
+     4. sticky 元素仅在其父元素内生效；(也就是说只有在父元素内才表现为吸顶，当父元素被滚动隐藏，sticky元素会随着父元素滚动隐藏)
+
+     由此，我们可以知道sticky不适合解决这个问题。
+
+   - 方案三：使用`usePageScroll`钩子（相当于onPageScroll事件）,滚动的时候根据`scrollTop`进行判断显示或者隐藏。
+
+10. `formId`只能在真机里获取，开发工具里永远是undefined。
+
+
+
+
+

@@ -126,9 +126,25 @@ function Counter() {
 2. 当列表更新后，重新注册一遍拖拽响应事件。也是同理，依赖参数是列表，只要列表变化，拖拽响应就会重新初始化，这样我们可以放心的修改列表，而不用担心拖拽事件失效。
 3. 只要数据流某个数据变化，页面标题就同步修改。同理，也不需要在每次数据变化时修改标题，而是通过 `useEffect` “监听” 数据的变化，这是一种 **“控制反转”** 的思维。
 
+### 实现组件销毁和组件创建生命周期
+
+```js
+// 依赖数组为空数组，只会调用一次useEffect
+useEffect(() => {
+  console.log('mount') // 会在第一次渲染的时候打印
+  return () => {
+    console.log('unmount') // 在组件卸载的时候调用
+  }
+}, [])
+```
+
+
+
 ## useRef
 
-与 class 组件进行比较，`useRef` 的作用相对于让你在 class 组件的 `this` 上追加属性。
+与 class 组件进行比较，`useRef` 的作用相对于让你在 class 组件的 `this` 上追加属性（实例变量）。用于保存与渲染无关的变量（例如点击一个商品列表弹窗，需要保持一个index或者id，弹框只有在确定按钮点击的时候才用这个变量去进行请求操作，官方例子用它来保存定时器ID进行定时器的清除）
+
+避免在渲染过程中设置引用 - 这可能会导致令人惊讶的行为。只在事件处理程序和 effects 中修改引用。
 
 ```jsx
 const components = () => {
@@ -143,6 +159,7 @@ export default function HookDemo() {
   const [count] = useState({ count: 1 });
   
   const countRef = useRef(count);
+  // countRef.current被初始化成count
 
   return (
     <div>
@@ -231,6 +248,7 @@ const fn = useMemo(() => () => {
 // 用 React.useMemo 优化渲染性能
 // 跳过一次子节点的昂贵的重新渲染
 // 注意这种方式在循环中是无效的，因为 Hook 调用 不能 被放在循环中。
+// 这种方式在Taro中使用会报错
 const memoComponentsA = useMemo(() => (
     <ComponentsA {...someProps} />
 ), [someProps]);
@@ -294,8 +312,6 @@ const [score, setScore] = useState<number>(1)
 
 const sum = count + score // 每次重新渲染都会执行，state改变就会触发重新渲染
 ```
-
-
 
 ## 惰性初始值
 
@@ -394,7 +410,11 @@ React 保持对当先渲染中的组件的追踪。多亏了 [Hook 规范](https
 
 每个组件内部都有一个「记忆单元格」列表。它们只不过是我们用来存储一些数据的 JavaScript 对象。当你用 `useState()` 调用一个 Hook 的时候，它会读取当前的单元格（或在首次渲染时将其初始化），然后把指针移动到下一个。这就是多个 `useState()` 调用会得到各自独立的本地 state 的原因。
 
-### 
+
+
+> StrictMode 在 development mode 下一些 hooks 的回调会调用两次以确保没有副作用。
+
+
 
 
 
