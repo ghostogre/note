@@ -223,6 +223,21 @@
 
     最佳方法还是切图解决，既能保证弧度一致，阴影也可以直接切图。
 
+17. 字体渐变背景色：
+
+    ```css
+    width:252px;
+    height:50px;
+    font-size:36px;
+    font-family:HYYakuHei-HEW,HYYakuHei;
+    font-weight:normal;
+    color:rgba(252,90,0,1);
+    line-height:50px;
+    background:linear-gradient(117deg, rgba(249,121,10,1) 0%, rgba(253,40,68,1) 100%);
+    -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;
+    ```
+
     
 
 
