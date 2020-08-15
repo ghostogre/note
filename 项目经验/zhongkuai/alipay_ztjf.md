@@ -143,13 +143,15 @@
 
 13. 解构赋值的时候，如果key值对应的value是null，是不会赋默认值的。（例如`const { key = 1 } = { key: null }`，最后key的值是null）,所以不可以使用解构赋值的默认值来解决判断后台API返回是不是null的问题。
 
+14. `encodeURI`不会转义特殊字符，如果拼接的URL比较多，可能会被特殊符号截断，比如有&符号的话会被当成参数截断，导致URL不完整。这个时候可以使用`encodeURIComponent`处理。
+
 ## 平台差异
 
 1. 透明渐变导航栏：支付宝小程序自己支持，在config里设置`"transparentTitle": "auto"`。
 2. 带有扩展组件库，包含UI组件和营销组件。
 3. API以`my.`开头。Taro 项目 支持 Taro 的代码与小程序（微信/百度/支付宝/字节跳动）原生的页面、组件代码混合存在
 4. `Taro.getOpenUserInfo()`：此接口可获取支付宝会员的基础信息。如需获取支付宝会员标识（user_id），请调用 `my.getAuthCode `和 `alipay.system.oauth.token` 接口。
-5. 支付宝diff算法有问题所以不能使用key。
+5. 支付宝diff算法有问题所以不能使用key，否则假如列表顺序变化，会出现点击A跳转到B的情况。
 
 ## 我的贡献
 

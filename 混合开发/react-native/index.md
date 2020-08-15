@@ -2,7 +2,7 @@
 
 必须安装的依赖有：Node（v12以上）、Watchman、Xcode 和 CocoaPods。
 
-推荐使用Homebrew(直接使用brew_install.rb来安装，不能使用root用户安装brew)来安装 Node 和 Watchman：
+推荐使用Homebrew(国内镜像安装`/bin/zsh -c "$(curl -fsSL https://gitee.com/cunkai/HomebrewCN/raw/master/Homebrew.sh)"`，homebrew不支持root用户下运行)来安装 Node 和 Watchman：
 
 ```bash
 brew install node
