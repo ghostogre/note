@@ -121,6 +121,15 @@
 
 7. 元素通过设置padding来保持内容对齐会有问题，在小程序中假如是奇数的padding可能最后转化以后会出现很小的偏差，所以最好使用指定宽度和`margin: 0 auto;`。
 
+8. **Taro升级**（2.2.4 -> 3.0.8）
+
+   - react的api和Taro的api分开。
+   - 2.0+的版本里只能在render函数里使用jsx，比如想用条件判断渲染返回不同的jsx会报错无法编译。3.0更加自由，能够使用react里的各种语法。
+   - Taro Next 在底层会维护一个精简的 DOM 系统，在框架中使用 `ref` 链接到的是一个 Taro Element 实例，因此直接可以使用 [`HTMLElement`](https://developer.mozilla.org/zh-CN/docs/Web/API/HTMLElement) 的部分方法直接操作它。
+   - 如果需要引入taro-ui，需要`"taro-ui": "^3.0.0-alpha.3"`及以上的版本。
+   - 可以按照命令行配置生成demo来对照配置和语法。
+   - 3.0+会为每个页面都生成一个`.map`文件，上传会出现包过大的问题，最好使用`NODE_ENV=production`设置成生产环境再上传。
+
 ### 注意
 
 1. map循环的时候的return有多个render（比如if else判断返回），会无法通过编译，但是我们可以在return后面使用三元运算符等（例如`return condition ? <A/> : <B/>`）来解决条件渲染的问题。**要求使用一致的 return 语句 (consistent-return)。**
