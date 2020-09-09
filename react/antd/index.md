@@ -20,3 +20,7 @@
 
 可以用自定义日期库（[day.js](https://day.js.org/)、[date-fns](https://date-fns.org/)）替换 Moment 以优化打包大小。
 
+# 踩坑
+
+1. 使用Table需要指定rowKey（文档上没有明确的写），不然的话控制台会报错，显示必须为每一个列表子项设置一个key。
+2. Row的gutter不算在栅格里面的，所以使用gutter加栅格就能很好的使用页面。
