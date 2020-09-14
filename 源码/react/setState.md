@@ -1,3 +1,5 @@
+以前我使用`setState`总会有调用了但是实际上没有更新到页面的情况，最初通过将`setState`放到定时器里解决了，那时候简单的以为这是和Vue类似的写法。但是后来遇到了定时器也无法生效的情况，越发小心使用`setState`越发觉得需要掌握内部原理才能正确使用。
+
 ## setState
 
 在 src/ReactBaseClasses.js 这个文件里打断点，然后页面触发`setState`。
