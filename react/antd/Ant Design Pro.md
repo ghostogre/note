@@ -4,6 +4,8 @@
 
 > 与vue-router，react-router不同，antd pro的路由嵌套的时候也不能省略前缀路由。
 
+对于编辑和新增没有什么差别的页面，可以使用同一个页面，路由可以设置成`path: '/product/new'`和`path: '/product/edit/:id'`，根据路由名称，路径或者有没有params来判断。
+
 ### Pro Layout 组件
 
 集成了菜单，布局，页头，面包屑，设置抽屉等多种功能。
@@ -59,4 +61,6 @@ it('renders Dashboard', () => {
 ### 聚焦和忽略用例
 
 使用 `xit()` 取代 `it()` 可以暂时忽略用例，`fit()` 可以聚焦当前用例并忽略其他所有用例。
+
+
 

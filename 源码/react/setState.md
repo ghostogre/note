@@ -20,7 +20,7 @@
 
 几个变量用于创建Update的参数：
 
-1. eventTime：底层使用的是`scheduler`这个库，
+1. eventTime：底层使用的是`scheduler`这个库，这个库的源码也在react这个`monorepo`的packages下面。深入scheduler这个库里，可以知道`unstable_now`实际上调用的是`performance.now`和`Date.now`。
 
 传入构造函数得到一个update对象：
 
