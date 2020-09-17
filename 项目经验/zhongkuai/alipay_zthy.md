@@ -147,6 +147,10 @@
 
 15. 切换tab的时候，可能会出现tab的下划线动画卡顿，这是因为同时进行请求接口数据渲染，所以需要延时到动画完成再去进行接口数据请求。而且切换的时候需要显示列表为加载中状态，否则切换的时候会有其他tab的列表。
 
+16. uma一直存在bug，一直报错`TypeError: null is not an object (evaluating 'o.header')`。debug的时候代码是混淆压缩后的build代码，dev的时候`build --watch`的js是没有压缩和混淆过的，最好对照着非混淆的找，就能找到是哪个包的问题。
+
+17. **Bug**：支付宝的api 使用`getLocation.object.type`设置经纬度类型的时候，必须使用数字指定type而不是字符串数字（否则会一直无效）。
+
 ## 平台差异
 
 1. 透明渐变导航栏：支付宝小程序自己支持，在config里设置`"transparentTitle": "auto"`。
