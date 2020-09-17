@@ -4,7 +4,7 @@
 
 ## useRequest.ts
 
-第一个参数是字符串的时候直接调用fetch API，如果是对象的话根据对象的属性进行自定义请求，如果是函数则执行自定义的请求逻辑（axios等）。
+第一个参数是字符串的时候直接调用fetch API，如果是对象的话根据对象的属性进行自定义请求，如果是函数则执行自定义的请求逻辑（`axios`, `umi-request`等）。
 
 钩子内部主要是对第一个传参进行不同的处理，调用不同的异步请求，最终返回的是`useAsync`。
 
@@ -20,7 +20,7 @@
 
 run方法分为Fetch类上的和钩子函数内的，钩子函数的run主要是做了从cache中取值（在`useUpdateEffect`钩子里将fetches进行缓存`setCache`，然后在run里面取出缓存`getCache`。这样的话reset方法就是将fetches和`fetchRef.current`设置为空对象），最终调用当前key对应的fetch对象的run方法。
 
-在fetch对象的run方法里，判断config配置，最后决定使用`_run`，还是`debounceRun`（防抖）和`throttleRun`。
+在fetch对象的run方法里，判断config配置，最后决定直接使用`_run`，还是`debounceRun`（防抖）和`throttleRun`。
 
 ```js
 // 卸载组件触发
@@ -30,6 +30,13 @@ useEffect(() => () => {
 	});
 }, []);
 ```
+
+### utils（工具和钩子）
+
+1. `usePersistFn`：内部用一个ref保存这个函数（`fn`），然后返回一个`useCallback`处理的函数名叫`persist`，`persist`就是从ref上取出`fn`进行调用，`presisit`依赖的只有ref。
+2. `useUpdateEffect`：就是包装后的`useEffect`，内部也是维护一个ref - `isMounted`。每当传入的依赖数组变化，判断`isMounted`是否为true，然后觉得执行传入的回调还是设置`isMounted`为true。
+3. `cache`（工具函数）：用一个Map去进行缓存，key-value的形式。value值包括data，timer（定时器，根据传入的缓存期限到期删除这个key-value），startTime（开始时间）。
+4. `limit`：利用闭包保证同时只运行一个函数。
 
 ## useVirtualList
 
