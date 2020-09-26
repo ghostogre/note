@@ -49,5 +49,29 @@
    
 4. 在antd里使用栅格来布局**搜索条件**表格，为了适应页面变化，最好是放在一个Row行下面，然后设置列`{ xl: 6, lg: 12, md: 24 }`。
 
-   
+5. 组件options数据类型和接口返回结果类型不一样
+
+6. 定义在function或者class外的变量，方法。
+
+7. ts类型每次都需要多次import，如何解决？
+
+   - `*.d.ts`：声明文件
+
+   - `declare`：表示声明作用。
+
+   - `namespace`：namespace 可以在多个文件中声明，同名的namespace里的类型会合并。现在` modules` 才是推荐的组织代码结构的方式。
+
+   - `///`：三斜线指令是包含单个XML标签的单行注释。 注释的内容会做为编译器指令使用。
+
+     TypeScript 引入声明文件语法格式：
+
+     ```ts
+     /// <reference path = " runoob.d.ts" />
+     // 它用于声明文件间的_依赖_。
+     // 三斜线引用告诉编译器在编译过程中要引入的额外的文件。
+     ```
+
+8. useRequest使用了合并类型，泛型默认值是any类型，假如类型错误，也就会使用默认的泛型。
+
+   例如，在该项目中我在formatResult返回的`response.totalCount`是可选类型（可选类型相当于`YourType || undefined`），useRequest里`total`是必选，导致类型推断失败。useRequest的类型合并最终是根据传入的类型推断的，推断失败导致一直报错。
 

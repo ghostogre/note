@@ -4,9 +4,9 @@
 
 ## useRequest.ts
 
-第一个参数是字符串的时候直接调用fetch API，如果是对象的话根据对象的属性进行自定义请求，如果是函数则执行自定义的请求逻辑（`axios`，`fetch`, `umi-request`等）。
+第一个参数不是自定义请求方法的时候直接调用fetch API，如果是对象的话根据对象的属性进行自定义请求，如果是函数则执行自定义的请求逻辑（`axios`, `umi-request`等）。
 
-钩子内部主要是对第一个传参进行不同的处理，调用不同的异步请求，最终返回的是`useAsync`。
+钩子内部主要是对第一个传参进行不同的处理，调用不同的异步请求，最终返回的是`useAsync`/`usePaginated`/`useLoadMore`（根据options的`paginated`和`loadmore`决定）。
 
 > option中可以设置ready，ready为true的时候才会发起请求。
 >
