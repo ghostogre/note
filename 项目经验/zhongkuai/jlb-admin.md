@@ -71,7 +71,16 @@
      // 三斜线引用告诉编译器在编译过程中要引入的额外的文件。
      ```
 
+     ```ts
+     /// <reference path = " runoob.d.ts" />
+     export = API // API - namespace - 这样就可以在全部文件里直接使用了
+     ```
+
+     
+
 8. useRequest使用了合并类型，泛型默认值是any类型，假如类型错误，也就会使用默认的泛型。
 
    例如，在该项目中我在formatResult返回的`response.totalCount`是可选类型（可选类型相当于`YourType || undefined`），useRequest里`total`是必选，导致类型推断失败。useRequest的类型合并最终是根据传入的类型推断的，推断失败导致一直报错。
+
+   泛型可以不需要显式使用`<T>`，编译器会通过**类型参数推断**的方式告知编译器我们使用了哪种类型作为类型T（隐式）。useRequest中就是这样，根据类型参数推断获得泛型类型，假如都不符合就都用any。
 
