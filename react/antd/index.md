@@ -26,3 +26,4 @@
 2. Row的gutter不算在栅格里面的，所以直接使用gutter加栅格就能很好的进行页面布局。
 3. `Form`支持name的嵌套，name为一个字符串数组就能表示嵌套的结构，这样就能解决`Form.Item`的嵌套问题。
 4. 可编辑的Table，需要传入自定义的Row和Cell。然后编辑和保存字段通过`Form`实现，使用`context`在行和cell之间传递一个form的实例（`const [form] = Form.useForm()`）。
+5. 假如需要使用`Cascader`的延迟加载（`loadData`），那么options里需要保证有`isLeaf: false`
