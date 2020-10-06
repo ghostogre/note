@@ -6,8 +6,12 @@
 
 ## 使用tsconfig.json
 
-- 不带任何输入文件的情况下调用`tsc`，编译器会从当前目录开始去查找`tsconfig.json`文件，逐级向上搜索父目录。
-- 不带任何输入文件的情况下调用`tsc`，且使用命令行参数`--project`（或`-p`）指定一个包含`tsconfig.json`文件的目录。
+如果你想在使用 `tsconfig.json` 时从命令行手动运行 TypeScript 编译器，你可以通过以下方式：
+
+- 运行 tsc，它会在当前目录或者是父级目录寻找 `tsconfig.json` 文件。
+- 运行 `tsc -p ./path-to-project-directory` 。当然，这个路径可以是绝对路径，也可以是相对于当前目录的相对路径。
+
+你甚至可以使用 `tsc -w` 来启用 TypeScript 编译器的观测模式，在检测到文件改动之后，它将重新编译。
 
 当命令行上指定了输入文件时，`tsconfig.json`文件会被忽略。
 
@@ -32,6 +36,8 @@
   - `exculde`: 数组类型，排除的库名
 
 如不设定 `files` 和 `include`，ts 默认是 `exclude` 以外的所有的以 `.ts` 和 `.tsx` 结尾的文件。如果，同时设置 `files` 的优先级最高，`exclude` 次之，`include` 最低。
+
+可以通过 `compilerOptions` 来定制你的编译选项：
 
 | 属性名                       | 值类型    | 默认值     | 描述                                                         |
 | ---------------------------- | --------- | ---------- | ------------------------------------------------------------ |
@@ -84,3 +90,8 @@
 这个选项就是为了解决这个问题。当它设置为 `true` 时，允许使用 `import foo from 'foo'` 来导入一个通过 `export = foo` 导出的模块。当它设置为 `false` 时，则不允许，会报错。
 
 当然，我们一般不会在 ts 文件中使用 `export = foo` 来导出模块，而是在写（符合 commonjs 规范的）第三方库的声明文件时，才会用到 `export = foo` 来导出类型。
+
+> **重要的提示**
+>
+> 使用 `"module": "esnext"` 选项：TypeScript 保留 `import()` 语句，该语句用于 Webpack Code Splitting。
+

@@ -129,7 +129,7 @@ yarn add @types/react-dom
 
 可以运行 `tslint --project tsconfig.json` 规范我的项目
 
-# create-react-app
+## create-react-app
 
 ```bash
 > npx create-react-app react-typescript-demo --typescript 
