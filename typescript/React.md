@@ -143,3 +143,6 @@ yarn add @types/react-dom
 
 三斜线引用告诉编译器在编译过程中要引入的额外的文件。
 
+## react hooks
+
+使用函数式组件时需要将组件申明为`React.FC`类型，也就是 Functional Component 的意思，另外`props`需要申明各个参数的类型，然后通过泛型传递给`React.FC`。

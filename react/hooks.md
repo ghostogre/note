@@ -313,6 +313,16 @@ const [score, setScore] = useState<number>(1)
 const sum = count + score // 每次重新渲染都会执行，state改变就会触发重新渲染
 ```
 
+### `useMemo` 能做的难道不能用 `useEffect` 来做吗？
+
+传入 `useMemo` 的函数会在**渲染期间执行**。请不要在这个函数内部执行与渲染无关的操作，诸如副作用这类的操作属于 `useEffect` 的适用范畴，而不是 `useMemo。 在此不得不提 `React.memo` ，它的作用是实现整个组件的 `Pure` 功能：
+
+```text
+const Show:React.FC<Data> = React.memo(({ time, children }) => {...}
+```
+
+所以简单用一句话来概括 `useMemo` 和 `React.memo` 的区别就是：前者在某些情况下不希望组件对所有 `props` 做浅比较，只想实现局部 `Pure` 功能，即只想对特定的 `props` 做比较，并决定是否局部更新。
+
 ## 惰性初始值
 
 #### 惰性初始 state
