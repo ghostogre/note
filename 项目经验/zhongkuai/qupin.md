@@ -60,3 +60,37 @@
 
     **原因**：函数里`currentIndex`指向的是旧的值。函数创建的时候是指向的是上一个值，因为hooks的值不是同步，他是异步修改。
 
+15. **如何处理支付宝支付后端返回的html代码**
+
+    可以利用以下方式，首先将后端返回的html代码插入到当前页面中，然后提交表单，在当前页面直接实现跳转至支付宝支付页面。
+
+    ```ts
+    const div = document.createElement('div');
+    div.innerHTML = res.data; // html code
+    document.body.appendChild(div);
+    // 新标签页打开
+    // document.forms.alipaysubmit.setAttribute('target', '_blank');
+    document.forms.alipaysubmit.submit();
+    
+    // 这样确实实现了在新标签页打开支付页面，但是这样chrome浏览器会以其为弹窗进行拦截，所以这种方法是行不通的。
+    // 可以通过改变异步为同步async: false来避免拦截。但某些ajax库是不支持修改为同步的。
+    // 于是决定使用winow.open来打开一个新的窗口。
+    // 但是window.open必须是用户手动触发才不会被拦截。
+    
+    // 如何解决弹窗被拦截的问题，可以先打开一个不被拦截的空窗口，在异步请求后将href替换。
+    var btn = $('#btn');
+    btn.click(function () {
+        //打开一个不被拦截的新窗口
+        var newWindow = window.open();
+        $.ajax({
+            url: 'ooxx',
+            success: function (url) {
+                //修改新窗口的url
+                newWindow.location.href = url;
+            }
+        })
+    });
+    ```
+
+    
+
