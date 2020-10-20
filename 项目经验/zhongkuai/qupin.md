@@ -92,5 +92,5 @@
     });
     ```
 
-    
+16. 不能使用`useEffect` + `[]`替代`useDidShow`。切换页面再次进入的时候是不会触发`useEffect(callback, [])`。因为taro的navigate是会保留页面，不会进行卸载的（componentDidUnmount），再次进入也不会重新挂载。
 
