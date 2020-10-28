@@ -90,9 +90,33 @@
 
 10. 组件的全局类型定义：假如是class组件的直接就可以给全局定义class的类型，但是如果是函数组件该如何全局定义呢？还是说依然在组件里定义类型，或者从专门的ts文件导入类型。
 
-11. React-window虚拟列表
+11. react-window虚拟列表：`https://github.com/bvaughn/react-window`
 
-12. 图片墙拖拽：`https://www.jianshu.com/p/c453904cd55e`
+12. `Upload`图片墙改造拖拽：`https://www.jianshu.com/p/c453904cd55e`
 
-13. less 切换
+    **要点：**
+
+    - `Upload`图片墙在鼠标移上去的时候，会显示操作浮层。使用全局属性修改遮罩到底部，防止浮层阻碍拖拽。
+
+    - 使用`querySelectorAll`获取节点列表，然后绑定drag事件进行拖拽（h5）。这里有个技巧，因为获取到的是Nodelist对象而不是数组，所以遍历处理的时候使用`Array.forEach.call`来处理。
+
+    - h5中 draggable 属性规定元素是否可拖动。
+
+      **拖动事件：**
+
+      1. dragstart：在元素开始被拖动时触发
+      2. dragend：在拖动操作完成时触发
+      3. drag：在元素被拖动时触发
+
+      **释放区事件：**
+
+      1. dragenter：被拖动元素进入到释放区所占据得屏幕空间时触发
+
+      2. dragover：当被拖动元素在释放区内移动时触发
+
+      3. dragleave：当被拖动元素没有放下就离开释放区时触发
+
+      4. drop：当被拖动元素在释放区里放下时触发
+
+13. 开启CSS Modules之后默认的样式都为局部样式，使用`:global {}`定义全局样式
 
