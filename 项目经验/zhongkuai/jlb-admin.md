@@ -100,6 +100,15 @@
 
        - 使用`querySelectorAll`获取节点列表，然后绑定drag事件进行拖拽（h5）。这里有个技巧，因为获取到的是Nodelist对象而不是数组，所以遍历处理的时候使用`Array.forEach.call`来处理。
 
+       - 删除和新增图片操作会触发`getFieldValue("fileList")`变更时，实际图片列表dom没有立即同步
+
+         1. 删除操作时：dom上的class 的变更是和`getFieldValue("fileList")`同步的。可以通过class来计算出那些图片成员是正在删除的。
+         2. 新增时：dom的新增会快于`getFieldValue("fileList")`的新增。
+
+    - 拖拽的api要实现顺利的拖拽 draggerover 必须要`e.preventDefault()`，ondrop才能顺利获得setData的内容。
+
+    - 当上传图片后`getFieldValue('files')`发生变化，但是还没有异步获取上传图片路径时，此时DOM没有变化，通过监听图片dom长度再次触发useEffect，监听新增的图片dom。
+
        - h5中 draggable 属性规定元素是否可拖动。
 
          **拖动事件：**
@@ -114,25 +123,42 @@
          2. dragover：当被拖动元素在释放区内移动时触发
          3. dragleave：当被拖动元素没有放下就离开释放区时触发
          4. drop：当被拖动元素在释放区里放下时触发
+         
+         dataTransfer 对象用于保存拖动并放下过程中的数据。这个对象可以从所有拖动事件 drag events 的 dataTransfer 属性上获取。
 
 13. **Form**
 
-       - antd中如果需要使用Form来控制输入的值和输入事件，需要组件提供`value`和`onChange`事件
+       - antd中如果需要使用Form来托管数据修改，需要组件提供`value`和`onChange`事件。
+
+         自定义或第三方的表单控件，也可以与 Form 组件一起使用。只要该组件遵循以下的约定：
+
+         > - 提供受控属性 `value` 或其它与 `valuePropName`的值同名的属性。
+         > - 提供 `onChange` 事件或 `trigger` 的值同名的事件。
+         > - 必须给`Form.Item`设置`name`，数据同步才会被 Form 接管
+
+         
+
        - 使用`Form.List`可以动态增加、减少表单项。动态增减嵌套字段需要对 `field` 进行拓展，将 `field.name` 和 `field.fieldKey` 应用于控制字段。
-       - Form可以校验Upload.
 
-14. 开启CSS Modules之后默认的样式都为局部样式，使用`:global {}`定义全局样式
+       - `V4` 没有 `getFieldDecorator`，可以直接在`Form.Item`上面设置rules了，`getFieldDecorator`类似于v4的`noStyle`无样式绑定组件（可以在外面套一个没有name属性的`Form.Item`组件作为布局作用）
 
-15. 使用use-immer的时候遍历数组的代码很想复用
+14. Form表单支持嵌套动态添加，所以类似商品内部的规格，可以使用简单的`Form.List`代替Table。这样不仅能使用Form的校验，而且代码量也更少。
 
-16. 函数的参数，除非内联无法判断类型。
+15. Upload组件限制长度可以在`onChange`或者`getFieldFromEvent`事件里，用一个单独的state控制长度。
 
-17. antd tree在数据较多的情况下（包含折叠的数据，稍微多点就会卡）卡顿
+16. 开启CSS Modules之后默认的样式都为局部样式，使用`:global {}`定义全局样式
+
+17. 使用use-immer的时候遍历数组的代码很想复用
+
+18. 函数的参数，除非内联无法判断类型。
+
+19. antd tree在数据较多的情况下（包含折叠的数据，稍微多点就会卡）卡顿
 
        - 据说设置`height`固定高度能解决部分卡顿（启动虚拟滚动）
        - 使用`loadData`进行异步加载，即使是一次给了所有数据（children）
 
-18. **支付宝小程序分包**：
+20. **支付宝小程序分包**：
 
        主包只保留最常用的核心页面（首页、tabBar 页面和其他公共资源），将小程序中不经常使用的页面放到多个分包中，启动时只加载主包，使用时按需下载分包，不要一次性下载整个代码包，以提升首页启动速度。
 
+[react-antd-admin](https://github.com/WinmezzZ/react-antd-admin)
