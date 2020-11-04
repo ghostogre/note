@@ -126,7 +126,9 @@
          
          dataTransfer 对象用于保存拖动并放下过程中的数据。这个对象可以从所有拖动事件 drag events 的 dataTransfer 属性上获取。
 
-13. **Form**
+13. antd官方对于图片墙拖拽使用的是`react-dnd`这个高阶组件库。
+
+14. **Form**
 
        - antd中如果需要使用Form来托管数据修改，需要组件提供`value`和`onChange`事件。
 
@@ -142,23 +144,24 @@
 
        - `V4` 没有 `getFieldDecorator`，可以直接在`Form.Item`上面设置rules了，`getFieldDecorator`类似于v4的`noStyle`无样式绑定组件（可以在外面套一个没有name属性的`Form.Item`组件作为布局作用）
 
-14. Form表单支持嵌套动态添加，所以类似商品内部的规格，可以使用简单的`Form.List`代替Table。这样不仅能使用Form的校验，而且代码量也更少。
+15. Form表单支持嵌套动态添加，所以类似商品内部的规格，可以使用简单的`Form.List`代替Table。这样不仅能使用Form的校验，而且代码量也更少。
 
-15. Upload组件限制长度可以在`onChange`或者`getFieldFromEvent`事件里，用一个单独的state控制长度。
+16. Upload组件限制长度可以在`onChange`或者`getFieldFromEvent`事件里，用一个单独的state控制长度。
 
-16. 开启CSS Modules之后默认的样式都为局部样式，使用`:global {}`定义全局样式
+17. Form表单`getValueFromEvent`将onChange回调的传参进行格式化处理，`getValueProps`将props处理成表单元素能处理的格式。例如Upload组件，编辑商品的时候，后台返回的接口里面图片是一个字符串链接，所以我们需要把他转化成UploadFile对象的格式，但是Upload上传完成后的Upload对象提交到form需要转换成字符串传给接口。这时候就需要用到`getValueFormEvent`和`getValueProps`，需要注意的是`getValueFormEvent`除了`status`为`done`的时候返回response里的URL，其他时候返回都需要返回`undefined`。
 
-17. 使用use-immer的时候遍历数组的代码很想复用
+    `getValueProps`返回`{ fileList: [ { uid: string, name: string, url: string, status: 'done' } ] }`，就可以将接口返回的图片链接处理成Upload能够识别的对象。
 
-18. 函数的参数，除非内联无法判断类型。
+    **PS**：在`getValueProps`里进行setstate会报错 - 在组件渲染期间setstate触发了更新。但是`getValueFromEvent`只会在触发onChange的时候才会调用。所以需要对setstate包裹setTimeout推迟渲染，默认是显示添加按钮的，但是会有添加图片按钮闪烁一下消失，默认让他不显示添加然后再判断是否显示就不会闪烁。
 
-19. antd tree在数据较多的情况下（包含折叠的数据，稍微多点就会卡）卡顿
+17. 开启CSS Modules之后默认的样式都为局部样式，使用`:global {}`定义全局样式。
+18. 使用use-immer的时候遍历数组的代码很想复用
+19. 函数的参数，除非内联无法判断类型。
+20. antd tree在数据较多的情况下（包含折叠的数据，稍微多点就会卡）卡顿
 
-       - 据说设置`height`固定高度能解决部分卡顿（启动虚拟滚动）
-       - 使用`loadData`进行异步加载，即使是一次给了所有数据（children）
+   - 据说设置`height`固定高度能解决部分卡顿（启动虚拟滚动）
+   - 使用`loadData`进行异步加载，即使是一次给了所有数据（children）
 
-20. **支付宝小程序分包**：
-
-       主包只保留最常用的核心页面（首页、tabBar 页面和其他公共资源），将小程序中不经常使用的页面放到多个分包中，启动时只加载主包，使用时按需下载分包，不要一次性下载整个代码包，以提升首页启动速度。
+21. **支付宝小程序分包**：主包只保留最常用的核心页面（首页、tabBar 页面和其他公共资源），将小程序中不经常使用的页面放到多个分包中，启动时只加载主包，使用时按需下载分包，不要一次性下载整个代码包，以提升首页启动速度。
 
 [react-antd-admin](https://github.com/WinmezzZ/react-antd-admin)
