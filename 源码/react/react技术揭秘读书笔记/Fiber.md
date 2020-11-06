@@ -221,7 +221,7 @@ function App() {
 ReactDOM.render(<App/>, document.getElementById('root'));
 ```
 
-1. 首次执行`ReactDOM.render`会创建`fiberRootNode`（源码中叫`fiberRoot`）和`rootFiber`。其中`fiberRootNode`是整个应用的根节点，`rootFiber`是`<App/>`所在组件树的根节点。
+首次执行`ReactDOM.render`会创建`fiberRootNode`（源码中叫`fiberRoot`）和`rootFiber`。其中`fiberRootNode`是整个应用的根节点，`rootFiber`是`<App/>`所在组件树的根节点。
 
 之所以要区分`fiberRootNode`与`rootFiber`，是因为在应用中我们可以多次调用`ReactDOM.render`渲染不同的组件树，他们会拥有不同的`rootFiber`。但是整个应用的根节点只有一个，那就是`fiberRootNode`。
 
@@ -234,3 +234,26 @@ fiberRootNode.current = rootFiber;
 由于是首屏渲染，页面中还没有挂载任何`DOM`，所以`fiberRootNode.current`指向的`rootFiber`没有任何`子Fiber节点`（即`current Fiber树`为空）
 
 接下来进入`render阶段`，根据组件返回的`JSX`在内存中依次创建`Fiber节点`并连接在一起构建`Fiber树`，被称为`workInProgress Fiber树`。
+
+在构建`workInProgress Fiber树`时会尝试复用`current Fiber树`中已有的`Fiber节点`内的属性，在`首屏渲染`时只有`rootFiber`存在对应的`workInProgress fiber`（即`rootFiber.alternate`）。
+
+![](/Users/apple/projects/note/源码/react/images/workInProgressFiber.png)
+
+图中右侧已构建完的`workInProgress Fiber树`在`commit阶段`渲染到页面。
+
+此时`DOM`更新为右侧树对应的样子。`fiberRootNode`的`current`指针指向`workInProgress Fiber树`使其变为`current Fiber 树`。
+
+![](/Users/apple/projects/note/源码/react/images/wipTreeFinish.png)
+
+## update时
+
+1. 接下来我们点击`p节点`触发状态改变，这会开启一次新的`render阶段`并构建一棵新的`workInProgress Fiber 树`。
+
+   ![](/Users/apple/projects/note/源码/react/images/wipTreeUpdate.png)
+
+   和`mount`时一样，`workInProgress fiber`的创建可以复用`current Fiber树`对应的节点数据。
+
+2. `workInProgress Fiber 树`在`render阶段`完成构建后进入`commit阶段`渲染到页面上。渲染完毕后，`workInProgress Fiber 树`变为`current Fiber 树`。
+
+   ![](/Users/apple/projects/note/源码/react/images/currentTreeUpdate.png)
+
