@@ -267,7 +267,13 @@
 
 18. 一个项目里，商品列表元素组件标题图片样式大多数是一样的，所以可以写成组件。但是可能tag标签和价格box会不一样。所以我们可以将他们做成`render props`传入，这样的话上面的点击事件也可以不用传入，比起传入字符串去判断显示不同内容，我们可以将显示不同内容的控制交给父组件。
 
-19. `margin-bottom: auto`：设置了这个CSS规则后，会给下方的DOM节点会有一个置地的效果。
+19. 自动 margin：父元素设置`display: flex`（替换成 `display: inline-flex | grid | inline-grid` 也是可以的），子元素设置`margin: auto`就能水平和垂直同时居中。
+
+    传统BFC中，如果 `margin-top` 和 `margin-bottom` 都是 auto，则他们的值都为 0。
+
+    所以要使单个元素使用 `margin: auto` 在垂直方向上能够居中元素，需要让该元素处于 FFC(flex formatting context)，或者 GFC(grid formatting context) 上下文中。在 flex 格式化上下文中，设置了 `margin: auto` 的元素，在通过 `justify-content`和 `align-self` 进行对齐之前，任何正处于空闲的空间都会分配到该方向的自动 margin 中去。
+
+    
 
 
 
