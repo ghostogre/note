@@ -273,6 +273,10 @@
 
     所以要使单个元素使用 `margin: auto` 在垂直方向上能够居中元素，需要让该元素处于 FFC(flex formatting context)，或者 GFC(grid formatting context) 上下文中。在 flex 格式化上下文中，设置了 `margin: auto` 的元素，在通过 `justify-content`和 `align-self` 进行对齐之前，任何正处于空闲的空间都会分配到该方向的自动 margin 中去。
 
+    如果任意方向上的可用空间分配给了该方向的自动 margin ，则对齐属性（justify-content/align-self）在该维度中不起作用，因为 margin 将在排布后**窃取该纬度方向剩余的所有可用空间**。
+    
+    也就是使用了自动 margin 的 flex 子项目，它们父元素设置的 `justify-content` 已经它们本身的 `align-self` 将不再生效，也就是这里存在一个优先级的关系。
+    
     
 
 
