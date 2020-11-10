@@ -276,10 +276,6 @@
     如果任意方向上的可用空间分配给了该方向的自动 margin ，则对齐属性（justify-content/align-self）在该维度中不起作用，因为 margin 将在排布后**窃取该纬度方向剩余的所有可用空间**。
     
     也就是使用了自动 margin 的 flex 子项目，它们父元素设置的 `justify-content` 已经它们本身的 `align-self` 将不再生效，也就是这里存在一个优先级的关系。
-    
-    
 
-
-
-
+20. taro 3.0中，不同组件和页面的CSS样式会存在相互影响的情况，为了防止类名冲突使用css module比较好。css module也可以使用less和sass的嵌套，css module 的class名必须是驼峰形式。
 
