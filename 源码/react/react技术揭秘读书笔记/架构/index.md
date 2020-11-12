@@ -58,10 +58,8 @@ function App({name}) {
 
 为了实现这个目标，需要将**同步的更新**变为**可中断的异步更新**。
 
-在浏览器每一帧的时间中，预留一些时间给JS线程，`React`利用这部分时间更新组件（可以看到，在[源码 (opens new window)](https://github.com/facebook/react/blob/1fb18e22ae66fdb1dc127347e169e73948778e5a/packages/scheduler/src/forks/SchedulerHostConfig.default.js#L119)中，预留的初始时间是5ms）。
+在浏览器每一帧的时间中，预留一些时间给JS线程，`React`利用这部分时间更新组件（可以看到，在源码中，预留的初始时间是5ms）。
 
 当预留的时间不够用时，`React`将线程控制权交还给浏览器使其有时间渲染UI，`React`则等待下一帧时间到来继续被中断的工作。
 
-> 
->
->  https://react.iamkasong.com
+> https://react.iamkasong.com
