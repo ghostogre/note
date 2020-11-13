@@ -278,4 +278,7 @@
     也就是使用了自动 margin 的 flex 子项目，它们父元素设置的 `justify-content` 已经它们本身的 `align-self` 将不再生效，也就是这里存在一个优先级的关系。
 
 20. taro 3.0中，不同组件和页面的CSS样式会存在相互影响的情况，为了防止类名冲突使用css module比较好。css module也可以使用less和sass的嵌套，css module 的class名必须是驼峰形式。
-
+    - css module 能够正常使用`&`操作符。
+    - 使用嵌套的时候，只需要引入嵌套内部的子类名。如果不同父类下面有相同的子类名称，他们的子类名称会一样的，但是父类嵌套会限制住子类表现。
+    
+21. 内层嵌套div的margin-top会转移到外部div上（微信小程序中View也是如此），需要给外层div设置border-top（透明）或者`overflow: hidden`。
