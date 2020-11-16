@@ -281,4 +281,32 @@
     - css module 能够正常使用`&`操作符。
     - 使用嵌套的时候，只需要引入嵌套内部的子类名。如果不同父类下面有相同的子类名称，他们的子类名称会一样的，但是父类嵌套会限制住子类表现。
     
-21. 内层嵌套div的margin-top会转移到外部div上（微信小程序中View也是如此），需要给外层div设置border-top（透明）或者`overflow: hidden`。
+21. 内层嵌套div的margin-top会转移到外部div上（微信小程序中View也是如此），需要给外层div设置border-top（透明），`padding-top: 1px;`或者`overflow: hidden`。
+
+22. 吸顶多tab列表：
+
+    - 参考antd的tabs组件：1. 使用 react-sticky 组件实现吸顶效果。2. 使用 `react-dnd` 实现标签可拖拽。
+
+    - 参考antd的table组件：通过 `react-window` 引入虚拟滚动方案。`react-window`是`react-virtualized`的轻量级替代品。宽高必须传入number类型，所以不能直接写’100%’，需要使用`react-virtualized-auto-sizer`包。
+
+      ```tsx
+      import { FixedSizeList as List } from 'react-window';
+       
+      const Row = ({ index, style }) => (
+        <div style={style}>Row {index}</div>
+      );
+       
+      const Example = () => (
+        <List
+          height={150}
+          itemCount={1000}
+          itemSize={35}
+          width={300}
+        >
+          {Row}
+        </List>
+      );
+      ```
+
+    - `import VirtualList from '@tarojs/components/virtual-list`。
+
