@@ -310,3 +310,5 @@
 
     - `import VirtualList from '@tarojs/components/virtual-list`。
 
+23. tabs中给每个tabItem使用`transform`动画的时候，最好给外层加一个包裹占位（设置最小宽度）。否则最后一个元素在动画开始的时候，`transform`会引起父元素滚动长度不计入最后一个元素的宽度，而出现奇妙的滚动现象。
+
