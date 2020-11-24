@@ -114,10 +114,40 @@
 6. 多Tab的列表需要考虑：
 
    - 多tab的列表，列表渲染会阻塞tab切换动画效果的表现，会出现掉帧现象，所以需要在tab切换完成以后渲染列表（比如骨架屏，加载状态等）。1.0 的处理方法是用`setTimeout`延迟200ms请求，然后切换的时候使用`van-skeleton`。
-   - tab较多的情况下，要么就是每次切换都是重新渲染（也就是下面tab列表项没有滚动效果，每次切换tab就重新渲染而已）。
+
    - 使用虚拟列表的思路，tabContent考虑做成横向的虚拟列表。
-   - jd的处理分类页面多个tab的方法是，实际上只渲染一个tabContent，在content里切换数据，每次切换的时候给tabContent容器元素逐渐显示的css效果（`transition: opacity .2s linear 0s `），或者说用一个loading在加载过程里显示（京东超市）。
-   - 得物的处理是：第一次点击tab的时候加载，之后的切换不会重新加载列表，但是当缓存的列表比较多的时候，再切换的时候重新加载也就是说缓存列表太多就会回收资源。
+
+   - tabs组件中给每个tabItem使用`transform`动画的时候，最好给外层加一个包裹占位（设置最小宽度）。否则最后一个元素在动画开始的时候，`transform`会引起父元素滚动长度不计入最后一个元素的宽度，而出现奇妙的滚动现象。
+
+   - tabs最好使用scrollView， 这样的话横向滚动的时候没有滚动条，而且还可以设置`scrollIntoView`。但是需要子元素设置`inline-block`和scrollView设置`white-space: nowrap`。
+
+   - **taro-ui**的tabs组件：`.at-tabs__body`组件实际上是一个`overflow:visible;width: 100%;transition: all .3;`的块元素，使用`touch`相关的方法控制body的style（`translate3d(-${current * 100}%, 0px, 0px)`），也就是说每次切换并不是重新渲染列表。其中的AtTabsPane是宽度为`100%`的行内块，区分为`active`和`inactive`两种状态。
+
+     ```ts
+     /** taro-ui也是这么判断是否是当前活动tab */
+     'at-tabs-pane--active': index === current,
+     'at-tabs-pane--inactive': index !== current
+     ```
+
+     ```scss
+       /**
+     	* 切换不同tab后，假如之前滚动了一段距离的话，新的tab的列表可能没有那么多高度，导致显示空白而且不触发触底加载。
+     	*/
+       &--active {
+         height: auto;
+       }
+     
+       &--inactive {
+         height: 0;
+         overflow: hidden;
+       }
+     ```
+
+     
+
+   - **jd**的处理分类页面多个tab的方法是，实际上只渲染一个tabContent，在content里切换数据，每次切换的时候给tabContent容器元素逐渐显示的css效果（`transition: opacity .2s linear 0s `），或者说用一个loading在加载过程里显示（京东超市）。
+
+   - **得物**的处理是：第一次点击tab的时候加载，之后的切换不会重新加载列表，但是当缓存的列表比较多的时候，再切换的时候重新加载也就是说缓存列表太多就会回收资源。
 
 7. 元素通过设置padding来保持内容对齐会有问题，在小程序中假如是奇数的padding可能最后转化以后会出现很小的偏差，所以最好使用指定宽度和`margin: 0 auto;`。
 
@@ -281,4 +311,64 @@
     - css module 能够正常使用`&`操作符。
     - 使用嵌套的时候，只需要引入嵌套内部的子类名。如果不同父类下面有相同的子类名称，他们的子类名称会一样的，但是父类嵌套会限制住子类表现。
     
-21. 内层嵌套div的margin-top会转移到外部div上（微信小程序中View也是如此），需要给外层div设置border-top（透明）或者`overflow: hidden`。
+21. 内层嵌套div的margin-top会转移到外部div上（微信小程序中View也是如此），需要给外层div设置border-top（透明），`padding-top: 1px;`或者`overflow: hidden`。
+
+22. 吸顶多tab列表：
+
+    - 参考antd的tabs组件：1. 使用 react-sticky 组件实现吸顶效果。2. 使用 `react-dnd` 实现标签可拖拽。
+
+    - 参考antd的table组件：通过 `react-window` 引入虚拟滚动方案。`react-window`是`react-virtualized`的轻量级替代品。宽高必须传入number类型，所以不能直接写’100%’，需要使用`react-virtualized-auto-sizer`包。
+
+      ```tsx
+      import { FixedSizeList as List } from 'react-window';
+       
+      const Row = ({ index, style }) => (
+        <div style={style}>Row {index}</div>
+      );
+       
+      const Example = () => (
+        <List
+          height={150}
+          itemCount={1000}
+          itemSize={35}
+          width={300}
+        >
+          {Row}
+        </List>
+      );
+      ```
+
+    - `import VirtualList from '@tarojs/components/virtual-list`。
+
+23. scss和less的写法（参考taro-ui里的scss写法）：
+
+    less官方插值格式为`@{num}`，与数据拼且放在冒号之后可以采用这样的格式使用`@@var`。
+
+```scss
+$component:'.className';
+
+#{$component} {
+ 	/** ...... */
+  &__item {
+    // ......
+    &-underline {
+      
+    }
+    &--active {
+      /** 切换选中，未选中的CSS */
+      // ......
+
+      #{$component}__item-underline {
+        // ......
+      }
+    }
+  }
+}
+```
+
+24.  `will-change` 为web开发者提供了一种告知浏览器该元素会有哪些变化的方法，这样浏览器可以在元素属性真正发生变化之前提前做好对应的优化准备工作。 这种优化可以将一部分复杂的计算工作提前准备好，使页面的反应更为快速灵敏。
+    - **不要将 will-change 应用到太多元素上**：如果过度使用的话，可能导致页面响应缓慢或者消耗非常多的资源。
+    - **有节制地使用：**最佳实践是当元素变化之前和之后通过脚本来切换 `will-change` 的值。
+    - **不要过早应用 will-change 优化：**`will-change` 的设计初衷是作为最后的优化手段，用来尝试解决现有的性能问题。它不应该被用来预防性能问题。过度使用 `will-change` 会导致大量的内存占用，并会导致更复杂的渲染过程，因为浏览器会试图准备可能存在的变化过程。这会导致更严重的性能问题。
+    - **给它足够的工作时间：** 使用时需要尝试去找到一些方法提前一定时间获知元素可能发生的变化，然后为它加上 `will-change 属性。`
+

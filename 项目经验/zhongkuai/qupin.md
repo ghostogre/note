@@ -92,7 +92,7 @@
     });
     ```
 
-16. 不能使用`useEffect` + `[]`替代`useDidShow`。切换页面再次进入的时候是不会触发`useEffect(callback, [])`。因为taro的navigate是会保留页面，不会进行卸载的（componentDidUnmount），再次进入也不会重新挂载。
+16. 不能使用`useEffect` + `[]`替代`useDidShow`。切换页面再次进入的时候是不会触发`useEffect(callback, [])`。因为taro的页面跳转实际上是页面切换前后台，`useDidShow`是页面切前台的事件监听。
 
 17. 下单到确认订单传递商品信息，可以使用序列化商品信息对象然后作为传参从URL上传递。这样的话不需要担心刷新消失和使用本地缓存。
 
