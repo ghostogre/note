@@ -280,7 +280,7 @@
 
     最佳方法还是切图解决，既能保证弧度一致，阴影也可以直接切图。
 
-17. 字体渐变背景色：
+17. **字体渐变背景色**：
 
     ```css
     width:252px;
@@ -295,9 +295,9 @@
     -webkit-text-fill-color:transparent;
     ```
 
-18. 一个项目里，商品列表元素组件标题图片样式大多数是一样的，所以可以写成组件。但是可能tag标签和价格box会不一样。所以我们可以将他们做成`render props`传入，这样的话上面的点击事件也可以不用传入，比起传入字符串去判断显示不同内容，我们可以将显示不同内容的控制交给父组件。
+18. 一个项目里**商品列表元素**组件标题图片样式大多数是一样的，所以可以写成组件。但是可能tag标签和价格box会不一样。所以我们可以将他们做成`render props`传入，这样的话上面的点击事件也可以不用传入，比起传入字符串去判断显示不同内容，我们可以将显示不同内容的控制交给父组件。
 
-19. 自动 margin：父元素设置`display: flex`（替换成 `display: inline-flex | grid | inline-grid` 也是可以的），子元素设置`margin: auto`就能水平和垂直同时居中。
+19. **自动 margin**：父元素设置`display: flex`（替换成 `display: inline-flex | grid | inline-grid` 也是可以的），子元素设置`margin: auto`就能水平和垂直同时居中。
 
     传统BFC中，如果 `margin-top` 和 `margin-bottom` 都是 auto，则他们的值都为 0。
 
@@ -311,9 +311,9 @@
     - css module 能够正常使用`&`操作符。
     - 使用嵌套的时候，只需要引入嵌套内部的子类名。如果不同父类下面有相同的子类名称，他们的子类名称会一样的，但是父类嵌套会限制住子类表现。
     
-21. 内层嵌套div的margin-top会转移到外部div上（微信小程序中View也是如此），需要给外层div设置border-top（透明），`padding-top: 1px;`或者`overflow: hidden`。
+21. 内层嵌套div的 margin-top 会转移到外部div上（微信小程序中View也是如此），需要给外层div设置border-top（透明），`padding-top: 1px;`或者`overflow: hidden`。
 
-22. 吸顶多tab列表：
+22. **吸顶多tab列表：**
 
     - 参考antd的tabs组件：1. 使用 react-sticky 组件实现吸顶效果。2. 使用 `react-dnd` 实现标签可拖拽。
 
@@ -340,7 +340,11 @@
 
     - `import VirtualList from '@tarojs/components/virtual-list`。
 
-23. scss和less的写法（参考taro-ui里的scss写法）：
+    - 吸顶效果最终还是需要使用`intersectionObserver`实现，将`tab nav list`和`tab list`分开抽成组件。
+
+    - 骨架屏：为了更好的保证使用骨架屏，可以把列表元素的内容都做成插槽，这样列表元素也是一个架子。
+
+23. **scss和less的写法**（参考taro-ui里的scss写法）：
 
     less官方插值格式为`@{num}`，与数据拼且放在冒号之后可以采用这样的格式使用`@@var`。
 
