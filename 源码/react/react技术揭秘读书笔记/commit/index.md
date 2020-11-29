@@ -43,7 +43,7 @@ commitRoot(root);
     return null;
   }
   root.finishedWork = null;
-  root.finishedLanes = NoLanes;
+  root.finishedLanes = NoLanes; // ReactFiberLane.js中定义的二进制常量
 
   // 重置Scheduler绑定的回调函数
   root.callbackNode = null;
