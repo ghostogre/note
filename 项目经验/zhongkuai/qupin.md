@@ -104,3 +104,5 @@
 
 21. `font-weight: 600`在安卓不生效，需要使用`font-weight: bold`。
 
+22. 在APP中使用h5，h5能够获取到APP映射到webview的方法（不过该方法一定会在开发工具里报错）
+
