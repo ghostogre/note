@@ -1,8 +1,37 @@
+> zk使用的重新包装的版本， 可能和最新版本源码不一样。
+
+### useAsync
+
+内部使用**newstFetchKey**记录这次请求的key（来源于options的fetchkey，没有设置fetchkey就使用默认的key，使用默认的key的时候就是单次请求），每次初始化fetches（fetches是state）的时候，从本地缓存获取fetches然后遍历执行返回新的fetches列表。每次run（这个run是钩子里的run方法）都会把新的fetch修改到fetches里，fetches改变会触发更新fetches到本地缓存，然后执行当前fetch的run方法（这里的run是fetch对象里的run方法）。
+
+### useLoadMore
+
+说白了就是在useAsync上面再包一层。每一次请求的时候从本地缓存里获取list和上一次非loading请求的数据（为什么是非loading呢，因为存在loadingDelay还有useAsync中每次run方法执行的时候就把fetches更新到缓存，需要确保这里不是loading状态中）。
+
+钩子内部使用`d => d?.list.length || 0`作为fetchkey，传给useAsync。所以使用loadmore的时候，不能再传入fetchkey了。
+
+loadMore 场景下，如果 refreshDeps 变化，调用reload重置到第一页。
+
 ## 常用的Options
 
 ### reload和refresh
 
 reload是触发重新加载，refresh是重置fetches然后重新请求。
+
+#### reload
+
+```ts
+const reload = useCallback(() => {
+  /** 调用useAsync钩子返回的reset和run */
+  reset(); // 根据useAsync中代码，是清空整个fetches
+  pageNo.current = 1
+  run({list: [], pageNo: 1})
+}, [run, reset, params])
+```
+
+#### refresh
+
+
 
 ### refreshDeps
 
@@ -11,4 +40,25 @@ reload是触发重新加载，refresh是重置fetches然后重新请求。
 ### refreshOnWindowFocus
 
 在屏幕重新获取焦点或重新显示时，是否重新发起请求。默认为 `false`，即不会重新发起请求。
+
+### ready
+
+只有当 `options.ready` 变为 true 时, 才会发起请求，基于该特性可以实现串行请求，依赖请求等。
+
+```ts
+const hasTriggeredByReady = useRef(false)
+/** ready只会在第一次变成true的时候发起请求（但是假如ready一开始就是true那就不会触发） */
+useUpdateEffect(() => {
+    if (ready) {
+      // 在 run 里判断没有 ready, 记录请求参数，等 ready 后，发起请求用readyMemoryParams.current
+      if (!hasTriggeredByReady.current && readyMemoryParams.current) {
+        runRef.current(readyMemoryParams.current);
+      }else if(!hasTriggeredByReady.current && defaultParams){
+        runRef.current(defaultParams)
+      }
+      hasTriggeredByReady.current = true;
+    }
+}, [ready]);
+/** 其他地方也有ready进行判断 */
+```
 

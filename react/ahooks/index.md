@@ -37,11 +37,11 @@ useEffect(() => () => {
 
 ### utils（工具和钩子）
 
-1. `usePersistFn`：内部用一个ref保存这个函数（`fn`），然后返回一个`useCallback`处理的函数名叫`persist`，`persist`就是从ref上取出`fn`进行调用。`presisit useCallback`的依赖只有这个ref。（持久化非state只有使用ref）
+1. `usePersistFn`：内部用一个ref保存这个函数（`fn`），然后返回一个`useCallback`处理的函数名叫`persist`，`persist`就是从ref上取出`fn`进行调用。`presisit useCallback`的依赖只有这个ref。这个钩子并没有暴露修改ref的方法进行返回，所以也就是说返回的方法是初始化之后就不变的。和直接使用useCallback本质区别在于，useCallback如果依赖变化会返回新的函数，而`usePersistFn`处理过的函数在运行中始终保持不变（直接使用useRef的话，ref是可以改变的，而这个钩子把ref隐藏在了钩子内部）。
 
 2. `useUpdateEffect`：就是包装后的`useEffect`，内部也是维护一个ref - `isMounted`。每当传入的依赖数组变化，判断`isMounted`是否为true，然后决定执行传入的回调（假如为true），还是设置`isMounted`为true。**如名字所述，这个是只在update的时候执行的useEffect，普通useEffect在第一次页面加载的时候也会执行一次**。（这个在小程序开发很有用，因为如果在`useDidShow`里也进行了加载操作，就会重复执行两次加载。至于为什么用ref保存`isMounted`呢？因为如果和页面渲染无关的state不会及时更新，而普通变量没有记录上一次的值的能力）
 
-3. `cache`（工具函数）：用一个Map去进行缓存，key-value的形式。value值包括data，timer（定时器，根据传入的缓存期限到期删除这个key-value），staleTime（数据新鲜时间）。
+3. `cache`（工具函数）：用一个Map去进行缓存，key-value的形式。value值包括data，timer（定时器，根据传入的缓存期限到期删除这个key-value），staleTime（数据新鲜时间）。每次重新设置的时候，需要先获取一遍storage里的数据，然后清除之前的timer（所以需要存timer），然后再设置缓存。
 
 4. `limit`：利用闭包保证同时只运行一个函数。
 
