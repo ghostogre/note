@@ -13,7 +13,7 @@
     error: undefined,
     params: [],
     cancel: notExecutedWarning('cancel'),
-    refresh: notExecutedWarning('refresh'), // 默认的refresh，实际上是console.warn打印警告
+    refresh: notExecutedWarning('refresh'), // 默认的refresh，实际上是console.warn打印警告 - “第一次请求执行不能调用refresh”
     mutate: notExecutedWarning('mutate'),
 	
     /** 最终返回的是fetch.state里面的具体实现和参数 */
@@ -24,7 +24,7 @@
   } as BaseResult<U, P>;
 ```
 
-useAsync最终返回的是`FetchResult`里的refresh方法，而这个fresh指向的是Fetch里方法。
+useAsync最终返回的是`FetchResult`里的refresh方法，而这个fresh指向的是Fetch里方法。我们在useRequest里面调用的refresh实际上就是当前fetch对象里的refresh方法（第一次的时候是notExecutedWarning方法，因为第一次请求不能refresh）
 
 ```ts
 class Fetch {
