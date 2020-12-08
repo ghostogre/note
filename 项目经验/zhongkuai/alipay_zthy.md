@@ -242,5 +242,19 @@
 
     - 内部其实使用了一个对象数组存储每一次请求
 
+16. ts类型声明可以使用下面这种方法：
+
+    ```ts
+    const useUpdateEffect: typeof useEffect = (...) => {
+      // ...
+    }
+    
+    export default useUpdateEffect
+    // const useUpdateEffect这种声明函数的方式有一个问题，在别的地方导入的时候回被认为不是函数
+    // 有一定几率会发生报错无法运行现象（遇到的场景：taro编译的支付宝小程序出现报错无法渲染页面，其他场景未知）。
+    ```
+
+    
+
 
 
