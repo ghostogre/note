@@ -278,3 +278,5 @@
 
 24. 使用`animation-play-state`可以控制animation的播放和暂停。
 
+25. 使用`+varName`可以简单将数字字符串转化为数字。
+
