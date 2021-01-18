@@ -50,3 +50,15 @@ export class TodoInput extends React.Component<TodoInputProps, State>{
 - 代码量少：一次编写，既可以作为类型也可以实例化作为值使用
 - 避免错误：分开编写一旦有一方造成书写错误不易察觉
 
+# Redux
+
+定义 `constants`
+
+```ts
+// constants/todo.ts
+export enum ActionTodoConstants {
+    ADD_TODO = 'todo/add',
+    TOGGLE_TODO = 'todo/toggle'
+}
+```
+
