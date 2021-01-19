@@ -46,10 +46,21 @@ Immer 基于 copy-on-write 机制。
 
 Immer 的基本思想是，所有更改都应用于临时的 *draftState*，它是 *currentState* 的代理。一旦完成所有变更，Immer 将基于草稿状态的变更生成 *nextState*。这意味着可以通过简单地修改数据而与数据进行交互，同时保留不可变数据的所有优点。
 
-对 `draftState` 的修改都会反映到 `nextState` 上，并且不会修改 `baseState`。而 immer 使用的结构是共享的，`nextState` 在结构上与 `currentState` 共享未修改的部分。
+```ts
+// 第一种用法
+produce(currentState, recipe: (draftState) => void | draftState, ?PatchListener): nextState
+// 第二种用法
+produce(recipe: (draftState) => void | draftState, ?PatchListener)(currentState): nextState
+```
+
+
+
+对 `draftState` 的修改都会反映到 `nextState` 上，并且不会修改 `currentState`。而 immer 使用的结构是共享的，`nextState` 在结构上与 `currentState` 共享未修改的部分。
 
 ```jsx
 import produce from "immer"
+/** 等价于 **/
+import { produce } from 'immer'
 
 const baseState = [
     {
@@ -62,7 +73,7 @@ const baseState = [
     }
 ]
 
-const nextState = produce(baseState, draftState => {
+const nextState = produce(currentState, draftState => {
     draftState.push({todo: "Tweet about it"})
     draftState[1].done = true
 })
@@ -101,9 +112,13 @@ const byId = produce((draft, action) => {
 
 #### recipe 的返回值
 
+recipe：用来操作 draftState 的函数
+
 通常，`recipe` 不需要显示的返回任何东西，`draftState` 会自动作为返回值反映到 `nextState`。你也可以返回任意数据作为 `nextState`，前提是 `draftState` 没有被修改。
 
 在 Javascript 中，不返回任何值和返回 `undefined` 是一样的，函数的返回值都是 `undefined` 。如果你希望 immer 知道你确实想要返回 `undefined` 怎么办？ 使用 immer 内置的变量 `nothing`。
+
+recipe 函数内部的`this`指向 draftState ，也就是修改`this`与修改 recipe 的参数 draftState ，效果是一样的。**注意：此处的 recipe 函数不能是箭头函数，如果是箭头函数，`this`就无法指向 draftState 了**
 
 ```ts
 import produce, {nothing} from "immer"
@@ -120,11 +135,67 @@ produce(state, draft => nothing)
 // Produces a new state, 'undefined'
 ```
 
-### Auto freezing（自动冻结）
+#### Patch
+
+可以方便进行详细的代码调试和跟踪，可以知道 recipe 内的做的每次修改，还可以实现时间旅行。
+
+ patch 对象是这样的:
+
+```ts
+interface Patch {
+  op: "replace" | "remove" | "add" // 一次更改的动作类型
+  path: (string | number)[] // 此属性指从树根到被更改树杈的路径
+  value?: any // op为 replace、add 时，才有此属性，表示新的赋值
+}
+```
+
+语法：
+
+```ts
+produce(
+  currentState, 
+  recipe,
+  // 通过 patchListener 函数，暴露正向和反向的补丁数组
+  patchListener: (patches: Patch[], inversePatches: Patch[]) => void
+)
+
+applyPatches(currentState, changes: (patches | inversePatches)[]): nextState
+
+import produce, { applyPatches } from "immer"
+
+let state = {
+  x: 1
+}
+
+let replaces = [];
+let inverseReplaces = [];
+
+state = produce(
+  state,
+  draft => {
+    draft.x = 2;
+    draft.y = 2;
+  },
+  (patches, inversePatches) => {
+    replaces = patches.filter(patch => patch.op === 'replace');
+    inverseReplaces = inversePatches.filter(patch => patch.op === 'replace');
+  }
+)
+
+state = produce(state, draft => {
+  draft.x = 3;
+})
+console.log('state1', state); // { x: 3, y: 2 }
+
+state = applyPatches(state, replaces);
+console.log('state2', state); // { x: 2, y: 2 }
+```
+
+#### Auto freezing（自动冻结）
 
 Immer 会自动冻结使用 `produce` 修改过的状态树，这样可以防止在变更函数外部修改状态树。这个特性会带来性能影响，所以需要在生产环境中关闭。可以使用 `setAutoFreeze(true / false)` 打开或者关闭。在开发环境中建议打开，可以避免不可预测的状态树更改。
 
-### 在 setState 中使用 immer
+#### 在 setState 中使用 immer
 
 使用 immer 进行深层状态更新很简单：
 

@@ -123,9 +123,94 @@ function HOF0(fn) {
 
   1. 设计轨迹方程，找出动画变量和时间的关系
   2. 确定动画周期和与动画变量对应的CSS属性
-  3. 通过`requestAnimationFrame`API，在浏览器重绘周期中更新动画变量，以实现我们需要的动画效果（实例中🌎公转的动画，可以使用改变transform-origin到☀️，然后使用transform的旋转动画）
+  3. 通过`requestAnimationFrame`API，在浏览器重绘周期中更新动画变量，以实现我们需要的动画效果（实例中🌎公转的动画，可以使用改变transform-origin到☀️中心，然后使用transform的旋转动画）
 
   > chrome浏览器在处理emoji文字的`transform`属性时会产生抖动的bug。要解决这个问题，我们可以将`rotate`换成`rotate3d`
 
+  固定轨迹动画可以抽象为一个由**动画周期(T)**、**动画执行时间(t)**，以及**时间与属性值的映射函数(progress)** 共同决定的模型。
+
 - 连续的动画
 
+  1. 将连续的动画分解为**若干个固定轨迹的动画**
+  2. 为每个阶段的动画设计轨迹方程，找出动画变量和时间的关系
+  3. 确定每个阶段的**动画周期**（duration）和与动画变量对应的CSS属性
+  4. 利用**异步**的方式（Promise）连接每个阶段的动画，形成一个连续的动画效果
+
+### 弹跳小球
+
+- `x**n` 相当于 `Math.pow(x,n)` 即x的n次方。
+- 弹起动画是在自由落体动画结束之后，所以弹起动画必须等待自由落体动画执行结束后才能开始执行。这涉及到一个异步的过程，需要对动画过程进行一下简单的封装，让它实现一个`asyn/await`的过程。
+
+### 插值
+
+在固定轨迹动画模型里，知道T、t以及progress，我们就能唯一确定动画元素target在t时刻的属性值。其中比较复杂的是progress（**时间与属性值的映射函数**），我们可以对它进行规范：progress可以由起始值（start）、结束值（end）、以及插值函数（interpolate）确定。
+
+* 也就是说插值函数就是描述在起始和结束之间取值的方法。
+
+### 缓动
+
+**缓动函数(easing)**：指定动画效果在执行时的速度，使其看起来更加真实。缓动函数可以复用，所以可以从插值方法里抽象出缓动函数。CSS里是存在缓动函数的，
+
+在较新的浏览器环境中，提供了JavaScript原生的动画API，叫做[Web Animation API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Animations_API)。这是一个目前还处在草案阶段的新特性，仅被部分较新的浏览器所支持。
+
+Web Animation API 为DOM元素提供了原生的animate方法，它接受keyframes和options两个参数，能够用JS实现和CSS基本上一致的关键帧动画：
+
+```js
+sphere.animate([
+  {top: '400px'},
+  {top: '100px'},
+], {
+  duration: 2000,
+  easing: 'cubic-bezier(0.68, -0.55, 0.265, 1.55)',
+  fill: 'forwards',
+});
+```
+
+上面的代码和前一个例子实现的效果一致，但是不需要依赖我们自己实现的动画方法，直接用原生的`.animate`方法即可。
+
+## 特殊的动画效果
+
+### 要让元素从上往下，或者从左往右渐显出来，要如何实现呢
+
+可以用伪元素遮盖住元素内容，然后用动画改变伪元素的宽或高：
+
+```css
+#content {
+  position: relative;
+  display: inline-block;
+  padding: 5px;
+  border: solid 1px;
+  font-size: 1.5rem;
+}
+
+#content::after {
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  width: calc(100% + 2px);
+  height: calc(100% + 2px);
+  content: ' ';
+  background: white;
+  animation: slide 2s ease-in forwards;
+}
+
+@keyframes slide {
+  to {width: 0};
+}
+```
+
+#### clip-path属性
+
+上面这个方法有点不够完美，主要是我们给`after`伪元素设置了一个白色的背景，如果父元素的背景不是白色，或者改变了，我们就需要修改对应的属性值。
+
+`clip-path` 属性可以创建一个只有元素的部分区域可以显示的剪切区域。区域内的部分显示，区域外的隐藏。`clip-path`支持CSS动画。
+
+#### mask属性
+
+更复杂的渐显动画可以使用CSS遮罩：`mask`属性，不过这是一个非标准属性，目前需要加`-webkit-`前缀，只有Chorme和Safari等少数浏览器的新版本支持。
+
+`mask`属性可以指定图片作为元素的遮罩，遮罩外的内容隐藏，而且我们可以把遮罩设置为渐变，所以我们就可以使用渐变遮罩来实现更复杂的渐显效果。在遮罩渐变里设置黑色为不可见，transparent 为可见。
+
+#### 描边动画
+
+描边动画可以通过改变SVG元素的`stroke-dasharray`和`stroke-dashoffset`两个属性来实现。

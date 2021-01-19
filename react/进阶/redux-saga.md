@@ -75,13 +75,13 @@ export function* watchIncrementAsync() {
 }
 ```
 
-工具函数 `delay`，这个函数返回一个延迟 1 秒再 resolve 的 Promise 我们将使用这个函数去 *block(阻塞)* Generator。
+>  工具函数 `delay`，这个函数返回一个延迟 1 秒再 resolve 的 Promise 我们将使用这个函数去 *block(阻塞)* Generator。
 
-Sagas 被实现为 `Generator functions`，它会 yield 对象到 redux-saga middleware。 被 yield 的对象都是一类指令，指令可被 middleware 解释执行。当 middleware 取得一个 yield 后的 Promise，middleware 会暂停 Saga，直到 Promise 完成。
+**Sagas** 被实现为 `Generator functions`，它会 **yield 对象到 redux-saga middleware**。 被 yield 的对象都是一类指令，指令可被 middleware 解释执行。当 middleware 取得一个 yield 后的 Promise，middleware 会暂停 Saga，直到 Promise 完成。
 
 一旦 Promise 被 resolve，middleware 会恢复 Saga 接着执行，直到遇到下一个 yield。
 
-`put` 就是我们称作 *Effect* 的一个例子。Effects 是一些简单 Javascript 对象，包含了要被 middleware 执行的指令。 当 middleware 拿到一个被 Saga yield 的 Effect，它会暂停 Saga，直到 Effect 执行完成，然后 Saga 会再次被恢复。
+`put` 我们称作 **Effects** 。Effects 是一些简单 Javascript 对象，包含了要被 middleware 执行的指令。 当 middleware 拿到一个被 Saga yield 的 Effect，它会暂停 Saga，直到 Effect 执行完成，然后 Saga 会再次被恢复。
 
 另一个 Saga `watchIncrementAsync`。我们用了一个 `redux-saga` 提供的辅助函数 `takeEvery`，用于监听所有的 `INCREMENT_ASYNC` action，并在 action 被匹配时执行 `incrementAsync` 任务。
 
@@ -91,17 +91,14 @@ Sagas 被实现为 `Generator functions`，它会 yield 对象到 redux-saga mid
 import { delay } from 'redux-saga'
 import { put, takeEvery, all } from 'redux-saga/effects'
 
-
 function* incrementAsync() {
   yield delay(1000)
   yield put({ type: 'INCREMENT' })
 }
 
-
 function* watchIncrementAsync() {
   yield takeEvery('INCREMENT_ASYNC', incrementAsync)
 }
-
 
 // notice how we now only export the rootSaga
 // single entry point to start all Sagas at once
@@ -120,9 +117,9 @@ put({type: 'INCREMENT'}) // => { PUT: {type: 'INCREMENT'} }
 call(delay, 1000)        // => { CALL: {fn: delay, args: [1000]}}
 ```
 
-middleware 检查每个被 yield 的 Effect 的类型，然后决定如何实现哪个 Effect。如果 Effect 类型是 `PUT` 那 middleware 会 dispatch 一个 action 到 Store。 如果 Effect 类型是 `CALL` 那么它会调用给定的函数。
+middleware 检查每个被 yield 的 Effect 的类型，然后决定如何实现哪个 Effect。如果 Effect 类型是 `put` 那 middleware 会 dispatch 一个 action 到 Store。 如果 Effect 类型是 `call` 那么它会调用给定的函数。
 
-`takeEvery`：
+### takeEvery
 
 ```javascript
 import { call, put, takeEvery } from 'redux-saga/effects'
@@ -147,15 +144,17 @@ function* watchFetchData() {
 
 如果我们只想得到最新那个请求的响应（例如，始终显示最新版本的数据）。我们可以使用 `takeLatest` 辅助函数。和 `takeEvery` 不同，在任何时刻 `takeLatest` 只允许一个 `fetchData` 任务在执行。并且这个任务是最后被启动的那个。 如果已经有一个任务在执行的时候启动另一个 `fetchData` ，那**之前的这个任务会被自动取消**。
 
-# 声明式 Effects
+## 声明式 Effects
 
-在 `redux-saga` 的世界里，Sagas 都用 Generator 函数实现。我们从 Generator 里 yield 纯 JavaScript 对象以表达 Saga 逻辑。 我们称呼那些对象为 *Effect*。Effect 是一个简单的对象，这个对象包含了一些给 middleware 解释执行的信息。 你可以把 Effect 看作是**发送给 middleware 的指令以执行某些操作**（例如调用某些异步函数，发起一个 action 到 store）。
+在 `redux-saga` 的世界里，Sagas 都用 Generator 函数实现。我们从 Generator 里 yield **纯 JavaScript 对象**以表达 Saga 逻辑。 我们称呼那些对象为 *Effect*。**Effect 是一个简单的对象，这个对象包含了一些给 middleware 解释执行的信息。** 你可以把 Effect 看作是**发送给 middleware 的指令以执行某些操作**（例如调用某些异步函数，发起一个 action 到 store）。
 
 你可以使用 `redux-saga/effects` 包里提供的函数来创建 Effect。
 
+在 Generator 函数中，`yield` 右边的任何表达式都会被求值，结果会被 yield 给调用者（可能是中间件，也可能是测试代码）
+
 ### call
 
-假设我们yield的value是一个promise，这样的话例如测试的时候我们就很难比较promise了。`call`**可以仅仅 yield 一条描述函数调用的信息**。 yield 后的对象作一个简单的 `deepEqual` 来检查它是否 yield 了我们期望的指令。
+假设我们yield的 value 是一个 promise ，这样的话例如**测试的时候我们就很难比较promise**了。`call`**可以仅仅 yield 一条描述函数调用的信息**。 yield 后的对象作一个简单的 `deepEqual` 来检查它是否 yield 了我们期望的指令。测试 Generator 时，所有我们需要做的是，将 yield 后的对象作一个简单的 `deepEqual` 来检查它是否 yield 了我们期望的指令。
 
 `call` 创建一个纯文本对象描述函数调用。`redux-saga` middleware 确保执行函数调用并在响应被 resolve 时恢复 generator。
 
@@ -183,11 +182,19 @@ const content = yield cps(readFile, '/path/to/file')
 
 ### put
 
+如果我们想要测试接收到 AJAX 响应之后执行 dispatch， 我们还需要模拟 `dispatch` 函数。只需创建一个对象来指示 middleware 我们需要发起一些 action，然后让 middleware 执行真实的 dispatch。
+
 `put`这个函数用于创建 dispatch Effect。
+
+**middleware 检查每个被 yield 的 Effect 的类型，然后决定如何实现哪个 Effect。如果 Effect 类型是 `PUT` 那 middleware 会 dispatch 一个 action 到 Store。 如果 Effect 类型是 `CALL` 那么它会调用给定的函数。**
+
+## 错误处理
+
+可以使用熟悉的 `try/catch` 语法在 Saga 中捕获错误。也可以让你的 API 服务返回一个正常的含有错误标识的值。
 
 ## 使用
 
-使用 `takeEvery('*')`（使用通配符 `*` 模式），我们就能捕获发起的所有类型的 action。
+使用 `takeEvery('*')`（使用通配符 `*` 模式），我们就能**捕获**发起的所有类型的 action。
 
 ```js
 import { select, takeEvery } from 'redux-saga/effects'
@@ -201,6 +208,8 @@ function* watchAndLog() {
   })
 }
 ```
+
+take 创建另一个命令对象，告诉 middleware 等待一个特定的 action。在 `take` 的情况中，它将会暂停 Generator 直到一个匹配的 action 被发起了。
 
 如何使用 `take` Effect 来实现和上面相同的功能：
 
@@ -226,7 +235,7 @@ function* watchAndLog() {
 
 而在 `take` 的情况中，控制恰恰相反。与 action 被 *推向（pushed）* 任务处理函数不同，Saga 是自己主动 *拉取（pulling）* action 的。 
 
-### 无阻塞调用
+## 无阻塞调用
 
 为了表示无阻塞调用，redux-saga 提供了另一个 Effect：`fork`。 当我们 fork 一个 *任务*，任务会在后台启动，调用者也可以继续它自己的流程，而不用等待被 fork 的任务结束。
 
@@ -256,7 +265,7 @@ function* authorize(user, password) {
 }
 ```
 
-# 同时执行多个任务
+## 同时执行多个任务
 
 ```js
 import { call } from 'redux-saga/effects'
@@ -270,7 +279,7 @@ const [users, repos] = yield [
 
 ## race
 
-`race` Effect 提供了一个方法，在多个 Effects 之间触发一个竞赛（race）。`race` 的另一个有用的功能是，它会自动取消那些失败的 Effects。
+`race` Effect 提供了一个方法，在多个 Effects 之间触发一个竞赛（race）。`race` 的另一个有用的功能是，它会**自动取消那些失败的 Effects**。
 
 ```js
 import { race, take, call } from 'redux-saga/effects'
@@ -290,10 +299,34 @@ function* watchStartBackgroundTask() {
 }
 ```
 
-# 取消任务
+## 取消任务
 
 一旦任务被 fork，可以使用 `yield cancel(task)` 来中止任务执行。取消正在运行的任务。
 
 取消 `bgSyncTask` 将会导致 Generator 跳进 finally 区块。可使用 `yield cancelled()` 来检查 Generator 是否已经被取消。
 
 取消正在执行的任务，也将同时取消被阻塞在当前 Effect 中的任务。也就是说，取消可以不断的往下传播。
+
+**自动取消**：并行的 Effect (`yield [...]`)。一旦其中任何一个任务被拒绝，并行的 Effect 将会被拒绝（受 `Promise.all` 启发）。在这种情况中，所有其他的 Effect 将被自动取消。
+
+## 对 Sagas 进行排序
+
+可以使用内置的 `yield*` 操作符来组合多个 Sagas，使得它们保持顺序。注意，使用 `yield*` 将导致该 Javascript 运行环境 *漫延* 至整个序列。 由此产生的迭代器将 yield 所有来自于嵌套迭代器里的值。一个更强大的替代方案是使用更通用的中间件组合机制。
+
+## 组合 Sagas
+
+使用 `yield*` 是提供组合 Sagas 的惯用方式，但这个方法也有一些局限性：
+
+- `yield*` 只允许任务的顺序组合，所以一次你只能 `yield*` 一个 Generator。
+- 你可能会想要单独测试嵌套的 Generator。这导致了一些重复的测试代码及重复执行的开销。 
+
+
+
+yield 一个队列的嵌套的 Generators，将同时启动这些子 Generators（sub-generators），并等待它们完成。 然后以所有返回的结果恢复执行：
+
+```ts
+function* mainSaga(getState) {
+  const results = yield [call(task1), call(task2), ...]
+  yield put(showResults(results))
+}
+```
