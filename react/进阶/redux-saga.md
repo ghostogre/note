@@ -320,8 +320,6 @@ function* watchStartBackgroundTask() {
 - `yield*` 只允许任务的顺序组合，所以一次你只能 `yield*` 一个 Generator。
 - 你可能会想要单独测试嵌套的 Generator。这导致了一些重复的测试代码及重复执行的开销。 
 
-
-
 yield 一个队列的嵌套的 Generators，将同时启动这些子 Generators（sub-generators），并等待它们完成。 然后以所有返回的结果恢复执行：
 
 ```ts
@@ -330,3 +328,111 @@ function* mainSaga(getState) {
   yield put(showResults(results))
 }
 ```
+
+## actionChannel
+
+比如有 4 个 action，我们想要一个一个处理，处理完第一个 action 之后再处理第二个，如此等等...
+
+想要的是 *queue（队列）* 所有没被处理的 action，一旦我们处理完当前的 request，就可以从队列中获取下一个的信息。
+
+`actionChannel` 可以处理这些东西。
+
+```ts
+import { take, actionChannel, call, ... } from 'redux-saga/effects'
+
+function* watchRequests() {
+  // 1- 为 REQUEST actions 创建一个 channel
+  const requestChan = yield actionChannel('REQUEST')
+  while (true) {
+    // 2- take from the channel
+    const {payload} = yield take(requestChan)
+    // 3- 注意这里我们用了一个阻塞调用
+    yield call(handleRequest, payload)
+  }
+}
+
+function* handleRequest(payload) { ... }
+```
+
+`call(handleRequest)` 返回之前，Saga 将保持阻塞。但与此同时，如果其他的 `REQUEST` action 在 Saga 仍被阻塞的情况下被 dispatch， 它们将被 `requestChan` 队列在内部。当 Saga 从 `call(handleRequest)` 恢复并执行下一个 `yield take(requestChan)` 时，`take` 将 resolve 被队列的消息。
+
+默认情况下，`actionChannel` 会无限制缓存所有传入的消息。如果你想要更多地控制缓存，你可以提供一个 Buffer 参数给 effect creator。 Redux-Saga 提供了一些常用的 buffers（none, dropping, sliding）
+
+```ts
+import { buffers } from 'redux-saga'
+import { actionChannel } from 'redux-saga/effects'
+
+function* watchRequests() {
+  const requestChan = yield actionChannel('REQUEST', buffers.sliding(5))
+  ...
+}
+```
+
+## eventChannel
+
+`eventChannel`（一个 factory function, 不是一个 Effect）为 Redux Store 以外的事件来源创建一个 Channel。
+
+```ts
+import { eventChannel, END } from 'redux-saga'
+
+function countdown(secs) {
+  return eventChannel(emitter => {
+      const iv = setInterval(() => {
+        secs -= 1
+        if (secs > 0) {
+          // 通过调用提供的 emitter，将事件来源传入的所有事件路由到 channel
+          emitter(secs)
+        } else {
+          // 这里将导致 channel 关闭
+          emitter(END)
+        }
+      }, 1000);
+      // subscriber 必须回传一个 unsubscribe 函数
+      return () => {
+        clearInterval(iv)
+      }
+    }
+  )
+}
+```
+
+- 第一个参数是一个 *subscriber* 函数，subscriber 的职责是初始化外部的事件来源（上面使用 `setInterval`。
+- 调用 `emitter(END)`，来通知 channel 消费者：channel 已经关闭了，意味着没有其他消息能够通过这个 channel 了。
+- 如果我们想要在事件来源完成之前*提前离开*（比如 Saga 被取消了），你可以从来源调用 `chan.close()` 关闭 channel 并取消订阅。
+- eventChannel 上的消息默认不会被缓存。为了给 channel 指定缓存策略（例如 `eventChannel(subscriber, buffer)`），你必须提供一个缓存给 eventChannel factory。
+
+watch-and-fork 模式允许同时处理多个请求，并且不限制同时执行的任务的数量。
+
+假设我们的要求是在**同一时间内最多执行三次任务**。当我们收到一个请求并且执行的任务少于三个时，我们会立即处理请求，否则我们将任务放入队列，并等待其中一个 *slots* 完成。
+
+```ts
+import { channel } from 'redux-saga'
+import { take, fork, ... } from 'redux-saga/effects'
+
+function* watchRequests() {
+  // 创建一个 channel 来队列传入的请求
+  const chan = yield call(channel)
+
+  // 创建 3 个 worker 'threads'
+  for (var i = 0; i < 3; i++) {
+    yield fork(handleRequest, chan)
+  }
+
+  while (true) {
+    const {payload} = yield take('REQUEST')
+    yield put(chan, payload)
+  }
+}
+
+function* handleRequest(chan) {
+  while (true) {
+    const payload = yield take(chan)
+    // process the request
+  }
+}
+```
+
+`watchRequests` saga fork 了 3 个 worker saga。注意，创建的 channel 将提供给所有被 fork 的 saga。 `watchRequests` 将使用这个 channel 来 *dispatch* 工作到那三个 worker saga。每一个 `REQUEST` action，Saga 只简单地在 channel 上放入 payload。 payload 然后会被任何 *空闲* 的 worker 接收。否则它将被 channel 放入队列，直到一个 worker saga 空闲下来准备接收它。
+
+这三个 worker 都执行一个典型的 while 循环。每次迭代时 worker 将 take 下一次的请求，或者阻塞直到有可用的消息。 注意，这个机制为 3 个 worker 提供了一个自动的负载均衡。快的 worker 不会被慢的 worker 拖慢。
+
