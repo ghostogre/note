@@ -155,9 +155,13 @@ function workLoop(deadline) { // deadline参数我们用它来检测还有多少
     nextUnitOfWork = performUnitOfWork(
       nextUnitOfWork
     )
+    // timeRemaining()返回一个时间DOMHighResTimeStamp, 并且是浮点类型的数值
+    // 它用来表示当前闲置周期的预估剩余毫秒数。
     shouldYield = deadline.timeRemaining() < 1
   }
   // 使用requestIdleCallback进行循环，会在浏览器空闲的时候执行
+  // workLoop函数会接收到一个名为 IdleDeadline 的参数
+  // 可以让你判断用户代理(浏览器)还剩余多少闲置时间可以用来执行耗时任务
   requestIdleCallback(workLoop)
 }
 
