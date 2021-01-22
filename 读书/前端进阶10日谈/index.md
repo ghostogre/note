@@ -214,3 +214,328 @@ sphere.animate([
 #### 描边动画
 
 描边动画可以通过改变SVG元素的`stroke-dasharray`和`stroke-dashoffset`两个属性来实现。
+
+## 元编程
+
+### 类的私有属性
+
+在JavaScript中，类的私有属性是Stage3阶段的标准（处于实验性阶段），最新的一些浏览器如Chrome最新版本，支持原生的类私有属性。
+
+在最新的浏览器中，我们可以在变量前加`#`，让变量变成私有属性。在较早的浏览器版本里，不支持使用原生的私有属性，这时，我们只能考虑用其他方式来实现类的私有属性。
+
+#### 传统的私有属性约定
+
+在许多代码库或模块，尤其是早期版本的代码库或模块中，私有属性基于约定，以下划线开头。这个并不是真正的“私有属性”，因为使用者其实如果想要访问`_foo`属性，任然能够随意访问。
+
+#### 混淆变量名
+
+如果要比较好地防止使用者使用私有属性，我们可以用混淆变量名（最简单就是使用随机数当变量名）的方式来防止使用者随意使用某个我们不想让使用者使用的属性。
+
+````ts
+const _foo = `_${Math.random().toString(36).slice(2, 10)}`;
+class Foo {
+  constructor() {
+    this[_foo] = 10;
+  }
+
+  bar() {
+    console.log(`Private foo is ${this[_foo]}`);
+  }
+}
+
+const foo = new Foo();
+foo.bar(); //Private foo is 10
+````
+
+使用者即使不知道随机的变量名，依然可以通过`Object.keys`或者`Object.entries`或者`for...in`等方法将这个属性枚举出来，所以仍然有使用这个属性的可能，我们可以通过将属性定义成不可枚举属性，来防止用户将它枚举出来：
+
+```ts
+const _foo = `_${Math.random().toString(36).slice(2, 10)}`;
+class Foo {
+  constructor() {
+    Object.defineProperty(this, _foo, {
+      value: 10,
+      enumerable: false,
+    });
+  }
+
+  bar() {
+    console.log(`Private foo is ${this[_foo]}`);
+  }
+}
+
+const foo = new Foo();
+foo.bar(); //Private foo is 10
+```
+
+但是依然能在浏览器控制台中打印看到这个属性。
+
+#### 使用Map和WeakMap
+
+如果要让它在控制台上也看不到，我们可以使用ES5的Map方法：
+
+```ts
+const privates = new Map();
+class Foo {
+  constructor() {
+    privates.set(this, {foo: 10, bar: 20});
+  }
+
+  bar() {
+    const _ = privates.get(this);
+    console.log(`Private foo is ${_.foo} and bar is ${_.bar}`);
+  }
+}
+
+const foo = new Foo();
+foo.bar(); //Private foo is 10 and bar is 20
+```
+
+使用Map，我们可以将私有属性完全封装在摸快内，在模块外不可能访问到，浏览器控制台上也看不到。
+
+不过使用Map也有缺点，首先这个方法内部使用起来也不太方便，不像之前那样，直接通过`this[_foo]`就能读或写私有属性`_foo`；另外，如果是私有方法，也很麻烦，还要处理this。
+
+```ts
+const privates = new Map();
+class Foo {
+  constructor() {
+    this.p = 2;
+    privates.set(this, {foo: function() {return 10 * this.p}});
+  }
+
+  bar() {
+    const _ = privates.get(this);
+    console.log(`Private foo is ${_.foo.call(this)}`);
+  }
+}
+
+const foo = new Foo();
+foo.bar(); //Private foo is 20
+```
+
+必须通过`call`或者`apply`方法来调用`_.foo`方法，以保证这个方法中的`this`指向的是`Foo`这个对象（不然可能取得是最外部的this）。
+
+如果用Map的话，对象引用被取消的时候，因为Map中还有该引用，从而导致对象不能被引擎回收。要解决这个问题，可以将Map用WeakMap替代。
+
+#### 使用 Symbol
+
+Symbol创建唯一的ID，可作为属性或者方法的key，同时，不会被`Object.keys`、`Object.entries`或者`for...in`枚举到。这样我们就能得到比混淆变量名更理想的方式，使用Symbol：
+
+```ts
+const _foo = Symbol('foo');
+class Foo {
+  constructor() {
+    this.p = 2;
+  }
+  [_foo]() {
+    return 10 * this.p;
+  }
+  bar() {
+    console.log(`Private foo is ${this[_foo]()}`);
+  }
+}
+
+const foo = new Foo();
+foo.bar(); //Private foo is 20
+```
+
+在模块外部是没法访问到私有属性的，但是控制台上可以在对象的原型上看到一个`Symbol(foo)`属性。
+
+如果使用者确实想要使用这个私有属性，可以使用`Object.getOwnPropertySymbols`方法获取对象上的Symbol（如果是私有方法，则要获取类的原型上的Symbol）。
+
+```ts
+const _privateFoo = Object.getOwnPropertySymbols(Foo.prototype)[0];
+
+foo[_privateFoo](); // 20
+```
+
+留有这一种访问方式，也算是提供一种反射机制，给使用者留下一个后门，以便确实需要的时候进行访问。
+
+在一般的情况下，我们使用`Symbol`来定义对象的私有属性和方法，是目前比较推荐的一种方式，直到原生的私有属性从Stage3成为正式的标准之前，我们还是使用Symbol来定义私有属性和方法吧。
+
+### 访问器属性
+
+一般来说，私有属性配合属性访问器使用
+
+```ts
+const _name = Symbol('bar');
+
+class Foo {
+  constructor(name) {
+    this[_name] = `foo: ${name}`;
+  }
+
+  get name() {
+    return this[_name];
+  }
+}
+```
+
+这样在外部它就是只读属性。它的值由内部的私有属性`this[_name]`决定。
+
+#### 关联属性
+
+设计对象模型的时候，尽量减少要维护的数据，数据越少，意味着模型越简单，代码的可维护性越强。可以通过**关联属性**简化对象模型中的数据。
+
+```ts
+const _name = Symbol('name');
+const _birthYear = Symbol('birth-year');
+const _birthMonth = Symbol('birth-month');
+
+class Person {
+  constructor({name, birthday}) {
+    this[_name] = name;
+    const date = new Date(birthday);
+    this[_birthYear] = date.getFullYear(); // 出生年份
+    this[_birthMonth] = date.getMonth() + 1; // 出生月份
+  }
+  
+  get name() {
+    return this[_name];
+  }
+  
+  get birthday() {
+    return {
+      year: this[_birthYear],
+      month: this[_birthMonth],
+    };
+  }
+  
+  get age() { // 根据出生年份计算age属性值
+    return new Date().getFullYear() - this[_birthYear];
+  }
+  
+  get portrait() { // 根据age属性计算portrait属性值
+    if(this.age <= 18) return '少年';
+    else return '成年';
+  }
+}
+```
+
+三个私有属性`[_name]`、`[_birthYear]`和`[_birthMonth]`，分别存储初始化的姓名、出生年和月的信息。我们用四个访问器属性来提供给使用者`name`、`birthday`、`age`、`portrait`四个对象属性，它们都是只读的。其中，`age`和`portrait`属性就是**关联属性**，它们的值都是根据`birthday`属性值的变化而变化。
+
+## 监听属性改变
+
+**数据驱动UI**或者**响应式数据绑定**
+
+```ts
+// 中间人
+class PubSub {
+  constructor() {
+    this.subscribers = {};
+  }
+
+  /*
+    @type 消息类型，如scroll
+    @receiver 订阅者
+    @fn 响应消息的处理函数
+  */
+  sub(type, receiver, fn) {
+    this.subscribers[type] = this.subscribers[type] || [];
+    this.subscribers[type].push(fn.bind(receiver));
+  }
+
+  /*
+    @type 消息类型
+    @sender 派发消息者
+    @data 数据，比如状态数据
+  */
+  pub(type, sender, data) {
+    const subscribers = this.subscribers[type];
+    subscribers.forEach((subscriber) => {
+      subscriber({type, sender, data});
+    });
+  }
+}
+```
+
+其实就是 Vue 2.0 的响应式原理，使用属性访问器setter和getter设置订阅和监听。而且如果是监听数组，监听消耗会十分大，所以3.0使用了更加高效的proxy代替。
+
+### 使用代理Proxy
+
+Proxy是ES6之后内置的JavaScript标准对象，它可以代理一个目标对象，以拦截该目标对象的**基本操作**。
+
+Proxy对象不能被直接继承，可以通过将原型设为代理对象。
+
+```ts
+let p = new Person({name: '张三', birthday: '1999-12'});
+
+function watch(obj, onchange) {
+  /**
+   * 这个代理对象表示拦截persion对象的属性赋值操作，在属性赋值操作后，都执行一次onchange方法。
+   * 这样就无需派发消息的中间人，但又实现了数据驱动UI的效果。
+   */
+  return new Proxy(obj, {
+    set(target, name, value) {
+      Reflect.set(target, name, value); // 调用person对象的原始操作(即属性赋值操作)
+      onchange(target, {[name]: value});
+      return true; // 表示成功
+    },
+  });
+}
+
+p = watch(p, (subject) => {
+  updatePerson(subject); // 更新到DOM
+});
+```
+
+Proxy还有很多拦截对象行为的方式，利用这些方式可以改变或扩展JavaScript代码的语义。
+
+通常情况下，我们把改变或扩展编程语言语义的行为，叫做**元编程**(Meta-Programming)。
+
+```ts
+const text = `君喻教育。
+君子之教，喻也。
+http://junyux.com`;
+
+// 这里使用字符串的装箱操作（即，将原始类型string包装成对象String），因为Proxy的第一个参数必须是一个对象。
+const p = new Proxy(new String(text), {
+  has: function(target, name) {
+     return target.indexOf(name) >= 0;
+  }
+});
+
+console.log('君喻' in p); // true
+console.log('君子之教' in p); // true
+console.log('junyux.com' in p); // true
+console.log('foo' in p); // false
+```
+
+通过Proxy改变了对象的`in`操作符的语义，将它从判断是否是对象上的属性，变为了判断字符串是否在被代理的文本内容中。
+
+**改变对象get访问器的语义：**
+
+```ts
+const config = {...}
+
+// 添加新的内容
+
+config.db = config.db || {};
+config.db.mysql = config.db.mysql || {};
+config.db.mysql.server = config.db.mysql.server || {};
+config.db.mysql.server.connectCount = 2;
+
+/** 使用proxy代替 */
+function Configure(config = {}) {
+  return new Proxy(config, {
+    get(target, key, receiver) {
+      if(!Reflect.has(target, key) && key !== 'toJSON') { // 如果key不存在，创建空对象并返回
+        const ret = {}
+        Reflect.set(target, key, ret)
+        return new Configure(ret)
+      } else {
+        const ret = Reflect.get(target, key)
+        if(ret && typeof ret === 'object') {
+          // 如果key存在，且key的值是一个对象，那么执行递归
+          return new Configure(ret)
+        }
+        return ret // 如果key存在且不是个对象，直接返回key的值
+      }
+    }
+  })
+}
+
+let config = new Configure();
+config.db.mysql.server.connectCount = 2;
+```
+

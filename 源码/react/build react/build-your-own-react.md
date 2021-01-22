@@ -400,9 +400,11 @@ function commitWork(fiber) {
 
 现在要做的是将在 `render` 函数上得到的元素与我们提交给 `DOM` 的最后一棵 `fiber tree` 进行比较。
 
-因此，在完成提交之后，我们需要保存对“我们提交给 `DOM` 的最后一棵 `fiber tree` ”的引用。 我们称它为 `currentRoot` 。
+因此，在完成提交之后，我们需要保存对“我们提交给 `DOM` 的**最后一棵** `fiber tree` ”的引用。 我们称它为 `currentRoot` 。
 
 我们还将 `alternate` 属性添加到每根 `fiber` 。 此属性是到旧 `fiber` 的链接，旧 `fiber` 是我们在上一个提交阶段向 `DOM` 提交的 `fiber` 
+
+如下，我们在每次执行 commitRoot 的时候记录 `currentRoot` :
 
 ```diff
 function commitRoot() {
@@ -428,7 +430,7 @@ let nextUnitOfWork = null
 let wipRoot = null
 ```
 
-现在，让我们从 `performUnitOfWork` 中提取创建新的 `fibers`的代码到一个新的reconcileChildren函数
+现在，让我们从 `performUnitOfWork` 中提取创建新的 `fibers`的代码到一个新的 reconcileChildren 函数。
 
 ```diff
 function performUnitOfWork(fiber) {
@@ -477,7 +479,9 @@ function performUnitOfWork(fiber) {
 ++ }
 ```
 
-我们同时遍历 `old fiber` 的 `children`（`wipFiber.alternate`）和要协调（reconcile）的 element 数组。
+我们将新的 element 数组和 old fiber 进行协调。
+
+如下所示，我们同时遍历 old fiber 的 children （`wipRoot.alternate`）和我们需要去协调的 element 数组。
 
 如果我们忽略了同时迭代数组和链接列表所需的所有模板。那么在此期间，我们剩下的最重要的是： `oldFiber` 和 `element` 。 `element` 是我们要渲染到 `DOM` 的东西，而 `oldFiber` 是我们上次渲染的东西。
 
@@ -487,9 +491,10 @@ function performUnitOfWork(fiber) {
 function reconcileChildren(wipFiber, elements) {
   let index = 0
   let oldFiber =
-    wipFiber.alternate && wipFiber.alternate.child
+    wipFiber.alternate && wipFiber.alternate.child // fiber的child是一个单链表
   let prevSibling = null
 
+  // 这里的diff是新element数组和旧fiber一一对应进行比较
   while (
     index < elements.length ||
     oldFiber != null
@@ -537,11 +542,24 @@ function reconcileChildren(wipFiber, elements) {
       deletions.push(oldFiber)
     }
 
-    // ......
+    if (oldFiber) {
+      oldFiber = oldFiber.sibling; // 遍历下一个fiber
+    }
+
+    // 给wipFiber的child添加节点
+    if (index === 0) {
+      wipFiber.child = newFiber;
+    } else if (element) {
+      prevSibling.sibling = newFiber;
+    }
+
+    prevSibling = newFiber;
+    index++;
+  }
 }
 ```
 
-上述对于需要删除节点的情况，我们没有新的 fiber ，因此我们将效果标签 effectTag 添加到oldFiber。但是，当我们将 fiber tree 提交给 DOM 时，我们是从正在进行的根 root 开始的，它没有 oldFiber，需要一个数组来跟踪要删除的节点。然后，当我们将更改提交到 `DOM` 时，我们也使用该数组中的 `fiber`。
+上述对于需要删除节点的情况，我们没有新的 fiber ，因此我们将效果标签 effectTag 添加到oldFiber。但是，当我们将 fiber tree 提交给 DOM 时，我们是从正在进行的根 root 开始的，它没有 oldFiber，需要一个数组来跟踪要删除的节点。然后，当我们将更改提交到 `DOM` 时，我们也使用该数组中的 `fiber`：
 
 ```diff
 function render(element, container) {
@@ -579,7 +597,7 @@ function commitWork(fiber) {
   const domParent = fiber.parent.dom
   domParent.appendChild(fiber.dom)
   
-  /** +++ */
+  /** ++++++ */
   if (
     fiber.effectTag === "PLACEMENT" &&
     fiber.dom != null
@@ -597,7 +615,7 @@ function commitWork(fiber) {
   } else if (fiber.effectTag === "DELETION") {
     domParent.removeChild(fiber.dom)
   }
-  /** +++ */
+  /** ++++++ */
   
   commitWork(fiber.child)
   commitWork(fiber.sibling)
@@ -619,7 +637,7 @@ const isNew = (prev, next) => key =>
 const isGone = (prev, next) => key => !(key in next)
 function updateDom(dom, prevProps, nextProps) {
   // TODO
-  //Remove old or changed event listeners
+  // Remove old or changed event listeners
   Object.keys(prevProps)
     .filter(isEvent)
     .filter(
@@ -698,8 +716,8 @@ const element = Didact.createElement(App, {
 
 函数组件有两个不同：
 
-- 函数组件的 fiber 没有 DOM 节点。
-- `children` 来自于函数的调用，而不是直接来自于 `props`
+- 函数组件的 fiber 没有 DOM 节点（这里fiber应该说的是组件的root fiber）。
+- `children` 来自于函数的调用返回，而不是直接来自于 `props`
 
 我们检查 `fiber` 类型是否为函数，并根据结果使用其他更新函数。
 
@@ -707,7 +725,7 @@ const element = Didact.createElement(App, {
 
 ```ts
 function performUnitOfWork(fiber) {
-  /** +++ */
+  /** ++++++++++++ */
   const isFunctionComponent =
     fiber.type instanceof Function
   if (isFunctionComponent) {
@@ -715,7 +733,7 @@ function performUnitOfWork(fiber) {
   } else {
     updateHostComponent(fiber)
   }
-  /** +++ */
+  /** ++++++++++++ */
   if (fiber.child) {
     return fiber.child
   }
@@ -728,12 +746,14 @@ function performUnitOfWork(fiber) {
   }
 }
 
+// 函数组件更新
 function updateFunctionComponent(fiber) {
   // TODO
   const children = [fiber.type(fiber.props)]
   reconcileChildren(fiber, children)
 }
 
+// 类组件更新
 function updateHostComponent(fiber) {
   if (!fiber.dom) {
     fiber.dom = createDom(fiber)
@@ -744,7 +764,7 @@ function updateHostComponent(fiber) {
 
 需要更改的是 `commitWork` 函数，现在我们有了没有 `DOM` 节点的 `fiber` ，我们需要更改两件事：
 
-1. 首先，要找到带有 `DOM` 节点的父节点，我们需要沿着 `fiber tree` 向上移动，直到找到带有 `DOM` 节点的 `fiber` 。
+1. 首先，要找到带有 `DOM` 节点的父节点，我们需要沿着 `fiber tree` 向上移动，直到找到带有 `DOM` 节点的 `fiber` 。（因为外层或者内层可能还有函数组件包裹）
 2. 在删除节点时，我们还需要继续操作，直到找到具有 `DOM` 节点的子节点为止。
 
 ```diff
