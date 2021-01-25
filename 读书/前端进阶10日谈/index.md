@@ -539,3 +539,73 @@ let config = new Configure();
 config.db.mysql.server.connectCount = 2;
 ```
 
+## 属性描述符、Object对象和Symbols
+
+早期版本的JavaScript(ES5之前的版本)“忠告”说不要往`Object.prototype`或`Array.prototype`上添加任何东西。默认定义在对象或对象原型上的属性都是可枚举的，也就是说，这些属性会被`for...in`方法枚举出来。
+
+要避免这个问题，要么在for循环中判断：
+
+```ts
+for(let i in a) {
+  if(a.hasOwnProperty(i)) { // 排除原型上的方法
+    console.log(i);
+  }
+}
+```
+
+或者`Object.defineProperty`将方法设置为不可枚举。`Object.defineProperty`通过属性描述符定义对象的属性，使用这种方式定义的属性，默认情况下是不可枚举的。
+
+`Object.defineProperty`除了改变枚举方式之外，还可以改变读写和删除操作的结果。属性访问器只有`get`没有`set`的话，那么这个属性就不可写，也是不可改变的，比如无法用`delete`删除。属性描述符还有一个属性叫`configurable`，定义属性是否可被删除，默认值也是`false`。
+
+通过普通的赋值方式设置的属性，它的`enumerable`、`writable`和`configurable`都是`true`。
+
+在`class`中定义的方法默认`enumerable`是`false`，而`writable`和`configurable`都是`true`。
+
+如果**不希望一个对象的属性在运行时发生改变**，可以用`Object.freeze`方法将它“冻结”。“冻结”对象相当于将对象上的所有属性都设为不可写（`writable: false`）、不可改变（`configurable: false`），并且不允许再新增属性。不过，如果这个对象上本身有引用类型的属性，这个属性的那个对象依然是可写的。通常情况下，如果我们有很大的数据项，而这些数据项一旦加载之后就不可改变，我们可以将它通过`Object.freeze`冻结，这样在一定程度上可以**提升性能**，JS引擎在这里做了优化。
+
+如果我们不想让对象不可写，只是希望**对象的属性不能新增或删除**，那么可以使用`Object.seal`，相当于将对象上的所有属性都设为不可改变（即，`configurable: false`），并且不允许再新增属性。`Object.seal`对性能没有影响，但在一些场景下也会有用。比如我们给一个对象设置很多可配置的属性，为了防止用户因为拼写错误给对象添加了错误的属性，我们可以通过`Object.seal`将对象属性锁住。
+
+内置的`Symbol`，可以改写对象内部的语义。可以通过给对象的`Symbol.iterator`属性设置方法，来影响目标对象的数组`spread`操作（即，`...`操作符）结果和`for...of`行为。
+
+设置对象的`Symbol.toStringTag`会影响一个对象被`Object.prototype.toString`调用时返回的值。从而也改变它默认的`toString`行为。
+
+```js
+class Foo {
+  get [Symbol.toStringTag]() {
+    return this.constructor.name;
+  }  
+}
+```
+
+改写类的静态方法`Symbol.hasInstance`，可以改变`instanceof`操作的结果。因为JavaScript的类继承是单继承，所以在需要多继承的时候，我们只能通过混合的方式来处理：
+
+```ts
+class A {
+  constructor() {
+  }
+
+  methodA() {
+    console.log('method A');
+  }
+}
+
+class B extends A {
+  constructor() {
+    super();
+  }
+  methodB() {
+    console.log('method B');
+  }
+}
+
+const InterfaceC = {
+  [Symbol.hasInstance](obj) {
+    return obj instanceof B;
+  },
+};
+
+console.log(b instanceof InterfaceC); // true
+```
+
+除了这些以外，Symbol上还有`Symbol.match`可以设置字符串操作`String.prototype.match`的返回结果，还有`Symbol.split`、`Symbol.search`、`Symbol.replace`等等，也是控制相应的字符串操作的结果，另外还有`Symbol.toPrimitive`能够控制对象转换成原始类型的值，等等
+
