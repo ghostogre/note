@@ -3,6 +3,8 @@
 1. 快速的冷启动，不需要等待打包操作；
 2. 即时的热模块更新，替换性能和模块数量的解耦让更新飞起；
 3. 真正的按需编译，不再等待整个应用编译完成，这是一个巨大的改变。
+4. 一个开发服务器，它利用 [原生 ES 模块](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules) 提供了 [丰富的内建功能](https://cn.vitejs.dev/guide/features.html)。
+5. 一套构建指令，它使用 [Rollup](https://rollupjs.org/) 打包你的代码，预配置输出高度优化的静态资源用于生产。
 
 > Vite需要Node.js版本> = 12.0.0。
 
@@ -26,11 +28,17 @@ yarn create @vitejs/app my-vue-app --template vue
 
 vite不仅支持Vue，还支持react等框架。
 
-vite在开发中是作为一个服务器，而 index.html 是应用的入口，所以 index.html 不放在 public 文件夹里。vite支持使用多个`.html`文件来实现多页面应用。vite有根目录这个概念，我们使用相对路径的时候（`import App from './app.vue'`）会使用根目录作为基础路径（`import App from '/src/app.vue'`）。
+`index.html` 在项目最外层而不是在 `public` 文件夹里。这是有意而为之的：在开发期间 Vite 是一个服务器，而 `index.html` 是该 Vite 项目的入口点。vite支持使用多个`.html`文件来实现多页面应用。vite有根目录这个概念，这个根目录是指你的文件运行的位置。我们使用相对路径的时候（`import App from './app.vue'`）会使用根目录作为基础路径（`import App from '/src/app.vue'`）。
 
-`index.html`的URL会自动重置基础URL，不需要`%PUBLIC_URL%`占位符。
+#### 指定替代根目录
+
+`vite` 以当前工作目录作为根目录启动开发服务器。当然，你可以通过 `vite serve some/sub/dir` 来指定一个替代的根目录。
+
+#### CSS
 
 css文件会被编译成`\np{color:red;}\n`（`p { color: red; }`）这样的字符串。
+
+## 原理
 
 浏览器直接请求`.vue` 文件，那么文件内容是如何做出解析的呢。**项目是如何在不使用webpack等打包工具的条件下如何直接运行vue文件。**
 
@@ -90,3 +98,5 @@ vite的热更新主要有四步：
 - **full-reload** —— 页面 roload：使用 `window.reload` 刷新页面
 
 在server端，通过watcher监听页面改动，根据文件类型判断是js Reload还是vue Reload。通过解析器拿到当前文件内容，并与缓存里的上一次解析结果进行比较，如果发生改变则执行相应的render。
+
+> 当代大部分浏览器都已经支持在`type="module"`的`script`标签下直接执行解析`import`语句，在直接执行到这一步的时候，浏览器会**自动根据目录路径去请求路径下的资源**，只要触发了**请求**，我们就可以“拦截”了，把请求的assets资源截取进行处理，返回给浏览器执行。
