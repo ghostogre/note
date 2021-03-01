@@ -59,7 +59,33 @@
 
    umi-request 引入了**中间件机制**，类似 koa 的洋葱模型。
 
-   umi-request 不能直接获取到 response 的 data，需要显式调用 json() 将其转化成 json 数据。
+   默认使用的是 fetch 发起请求，不能直接获取到 response 的 data，需要显式调用 json() 将其转化成 json 数据，拦截器里获取到的 response 是一个 promise，需要使用 async 才能获取到 `await response.clone().json()`。
 
-9. import type
+9. 使用 useRequest 的时候，返回数据 data 的类型需要在我们的返回数据外侧包裹一层 data 结构的才能正确的推断出来。（最好的方法是定义一个格式化类型，在调用请求方法的时候，将我们的具体返回类型作为泛型传入其中
+
+   ```ts
+   function useRequest<R extends ResultWithData = any, P extends any[] = any>(
+     service: CombineService<R, P>,
+     options?: BaseOptions<R['data'], P>,
+   ): BaseResult<R['data'], P>;
+   
+   /** ts能够正确推断返回类型的类型 */
+   interface dataCond {
+       data: {
+          /** 具体返回数据 */
+       }
+   }
+   
+   /** 结果format类型 */
+   interface Result<T> {
+       data: T
+   }
+   
+   /** 在调用请求方法的时候，将我们的具体类型作为泛型传入 */
+   const requestMethod = () => request<Result<OurType>>({})
+   ```
+
+   
+
+10. **import type**：在 umi 命令下生成的 antd 项目里出现了`import type {xxx} from 'xxx'`这样的引入。这个是 flow 工具的一个语法，虽然项目中已经使用了 typescript，使得脚本生成的代码可以兼容 JS。import type 作用就是从另一个模块中导入数据类型，引入一个类（class）的目的，只是想使用他的类型标注（type annotation），那么你就可以使用这个import type语法。
 
