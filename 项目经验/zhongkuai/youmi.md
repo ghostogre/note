@@ -61,13 +61,34 @@
 
    默认使用的是 fetch 发起请求，不能直接获取到 response 的 data，需要显式调用 json() 将其转化成 json 数据，拦截器里获取到的 response 是一个 promise，需要使用 async 才能获取到 `await response.clone().json()`。
 
-9. 使用 useRequest 的时候，返回数据 data 的类型需要在我们的返回数据外侧包裹一层 data 结构的才能正确的推断出来。（最好的方法是定义一个格式化类型，在调用请求方法的时候，将我们的具体返回类型作为泛型传入其中
+9. 使用 useRequest 的时候，返回数据 data 的类型需要在我们的返回数据外侧包裹一层 data 结构的才能正确的推断出来。（最好的方法是定义一个格式化类型，在调用请求方法的时候，将我们的具体返回类型作为泛型传入其中。）useRequest 显示声明 formatResult 也能正常推断出正确的类型，这时候不需要设置 data 包裹。
 
    ```ts
    function useRequest<R extends ResultWithData = any, P extends any[] = any>(
      service: CombineService<R, P>,
      options?: BaseOptions<R['data'], P>,
    ): BaseResult<R['data'], P>;
+   
+   function useRequest<R extends LoadMoreFormatReturn = any, RR = any>(
+     service: CombineService<RR, LoadMoreParams<R>>,
+     options: LoadMoreOptionsWithFormat<R, RR>,
+   ): LoadMoreResult<R>;
+   export interface LoadMoreOptionsWithFormat<R extends LoadMoreFormatReturn, RR> extends Omit<BaseOptions<R, LoadMoreParams<R>>, 'loadMore'> {
+       loadMore: true;
+       formatResult: (data: RR) => R;
+       ref?: RefObject<any>;
+       isNoMore?: (r: R | undefined) => boolean;
+       threshold?: number;
+   }
+   
+   const { data } = useRequest(
+   	doApi,
+     {
+       formatResult: () => {}
+       // 只要显示声明，就算 formatResult 是一个空函数
+       // 也能正常通过 formatResult 即将获得的传参推断出data的类型
+     }
+   )
    
    /** ts能够正确推断返回类型的类型 */
    interface dataCond {
@@ -88,4 +109,17 @@
    
 
 10. **import type**：在 umi 命令下生成的 antd 项目里出现了`import type {xxx} from 'xxx'`这样的引入。这个是 flow 工具的一个语法，虽然项目中已经使用了 typescript，使得脚本生成的代码可以兼容 JS。import type 作用就是从另一个模块中导入数据类型，引入一个类（class）的目的，只是想使用他的类型标注（type annotation），那么你就可以使用这个import type语法。
+
+11. **antd 表单**
+
+    - 表单提交只要返回的是一个 promise ，提交按钮自动呈现 loading 状态，这样便不需要节流（事实上之前的经验来看，即使做了节流也只是推迟了执行的时间，点击多次节流时间结束后依然会连续触发）。
+    - 浮层表单 ModalForm 集成了触发按钮的位置。
+    - 类似浮层弹浮层的功能，最好使用分布表单或者说侧滑表单来实现。
+    - 表单数据异步加载或者动态改变需要手动刷新。
+
+12. SecurityLayout 里可以配置自己的登录认证规则。
+
+13. `{ ...undefined }`不会报错，结果是空对象。
+
+14. **jsencrypt** 本地 cookie 保存密码时（记住密码功能）使用 jsencrypt 为密码进行加密。
 
