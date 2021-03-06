@@ -140,11 +140,13 @@
 
 15. 在 antd 自动生成的项目里，类似表单列 columns 这样的数组是直接定义在了组件外面。给 ProTable 初始化配置的时候，是用一个定义在组件外的 config 对象初始化一个 state，然后再`<ProTable {...config}>`这样就能一次性把属性设置到组件上去了。这样的话，重新初始化和修改其中的配置就很方便。
 
-16. 在 antd pro 项目里，有`<ModalForm<{ name: string }>>`这样的写法，这样的写法可以把自己项目的类型传入到组件里去。
+16. 在 antd pro 项目里，有`<ModalForm<T, U>>`这样的写法，这样的写法可以把自己项目的类型传入到组件里去。
 
 17. ProTable 里面 request 实现了将 useRequest 托管请求的方法，相当于整合了 useRequest 和 Table。
 
-18.  loading.effects['login/login']
+18. 在 4.0 之后，Button 的 danger 成为一种按钮属性而不是按钮类型。
 
-19. antd 的权限管理
+19. loading.effects['login/login']
+
+20. antd 的权限管理
 
