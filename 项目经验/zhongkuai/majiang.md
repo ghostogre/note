@@ -27,9 +27,15 @@
      let value = e.detail.value
      // useState 同理
      this.setState({ val: value })
-     setTimeout(() => this.setState({ val: value.replace(/[^a-zA-Z]/g, '') }))
+     /** 记得要清理定时器!!!!!! */
+     const timer = setTimeout(() => {
+       clearTimout(timer)
+       this.setState({ val: value.replace(/[^a-zA-Z]/g, '') })
+     })
    }
    ```
+
+   > 上述写法需要及时**清理定时器**，安卓大内存可能没问题，但是更加严格的IOS会出现卡死无反应的情况。
 
    名称长度限制5个字符：
 

@@ -163,6 +163,8 @@
 
 21. 内联样式使用`opacity`在View节点上设置可能不生效。（问题出现场景，使用**css module**设置className的View节点上，使用`style={{ opacity: error ? 1 : 0 }}`来显示错误提示文本， 直接使用`{ opacity: 0 }`设置style）
 
+22. 设置了 border-image 的时候，圆角 border-radius 不会生效。想要实现**渐变边框加圆角**，只能用外层div渐变背景和内层div白色背景。
+
 ## 平台差异
 
 1. 透明渐变导航栏：支付宝小程序自己支持，在config里设置`"transparentTitle": "auto"`。
