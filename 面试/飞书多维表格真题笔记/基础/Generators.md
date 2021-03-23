@@ -76,6 +76,7 @@ runtime.wrap=function (innerFn, outerFn, self, tryLocsList) {
   var context = new Context(tryLocsList || []);
  
   // ._invoke方法统一实现了.next, .throw, .return 方法。
+  // 根据上述代码这里 innerFn = example$, self = example 的this，context = []
   generator._invoke = makeInvokeMethod(innerFn, self, context);
  
   return generator;
@@ -104,6 +105,7 @@ function makeInvokeMethod(innerFn, self, context) {
   // 返回 invoke 函数
   return function invoke(method, arg) {
     // 当我们执行.next 方法时，实际调用的是 invoke 方法中的下面语句
+    // PS: invoke 的参数都是闭包.
 		var record = tryCatch(innerFn, self, context);
     if (record.type === "normal") {
       // If an exception is thrown from innerFn, we leave state ===
