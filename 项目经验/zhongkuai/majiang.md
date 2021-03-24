@@ -88,6 +88,12 @@
 
 18. 查看者新开桌后（编辑页面），微信小程序切到后台一段时间后，再次进入依然是查看者页面（IOS端）。
 
+    解决办法，直接使用场景值判断，场景值为1047的时候为扫码进入，这时候才去加载查看者。
+
+    使用`Taro.getLaunchOptionsSync`(`wx.getLaunchOptionsSync`)才能获取到 scene 场景值。
+
+    useRouter` 是 Taro 专有的 Hook，等同于页面为类时的` `getCurrentInstance().router` （path, params都从这里获取到，但是scene总是undefined）
+
     #### 小程序启动
     小程序启动可以分为两种情况，一种是冷启动，一种是热启动。
 
