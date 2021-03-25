@@ -146,7 +146,11 @@
 
 18. 在 4.0 之后，Button 的 danger 成为一种按钮属性而不是按钮类型。
 
-19. loading.effects['login/login']
+19. `loading.effects['login/login']`：
+
+    **dva-loading** 的代码
 
 20. antd 的权限管理
+
+21. umi 的 redux 由 dva 管理，使用 hooks 和 props 获取 dispatch 方法以外，还可以使用 `import { getDvaApp } from 'umi'`获取到 dva 实例，获取到 dva 的 store （`getDvaApp()._store.dispatch`），全局的调用 dispatch。
 
