@@ -146,11 +146,47 @@
 
 18. 在 4.0 之后，Button 的 danger 成为一种按钮属性而不是按钮类型。
 
-19. `loading.effects['login/login']`：
+19. 在connect 中看到`isLoading: loading.effects['xxx/xxx']`这样的代码：
 
-    **dva-loading** 的代码
+    这是过渡组件**dva-loading** 的代码，该组件仅仅监听异步加载状态。loading 在异步请求发出那一刻会持续监听该异步请求方法的状态，在异步请求结束之前 isLoading 的值一直是 true，当此次异步请求结束时 isLoading 的值变成 false，同时 loading 对象停止监听。
+
+    dva 项目的 index.js 文件：
+
+    ```jsx
+    import createLoading from 'dva-loading';
+    
+    const app = dva();
+    
+    app.use(createLoading());
+    ```
+
+    配置完成后，在任何一个 dva 的 routes 组件中就都会有一个 loading 对象，如果你对 dva 稍有了解的话，应该不难知道它在哪。比如下面这行代码中的 loading 对象就是由于上面的配置。
+
+    ```jsx
+    export default connect(({ app, loading }) => ({ app, loading }))(App);
+    ```
+
+    打印一下 loading 对象，可看到内容如下：
+
+    ```css
+    loading: {
+      global: false,
+      models: {app: false},
+      effects: {app: false}
+    }
+    ```
+
+    loading 有三个方法，其中 `loading.effects['user/query']` 为监听单一异步请求状态，当页面处于异步加载状态时该值为 true，当页面加载完成时，自动监听该值为 false。
+
+    如果同时发出若干个异步请求，需求是当所有异步请求都响应才做下一步操作，可以使用 `loading.global()` 方法，该方法监听所有异步请求的状态。
 
 20. antd 的**权限管理**
 
 21. umi 的 redux 由 dva 管理，使用 hooks 和 props 获取 dispatch 方法以外，还可以使用 `import { getDvaApp } from 'umi'`获取到 dva 实例，获取到 dva 的 store （`getDvaApp()._store.dispatch`），全局的调用 dispatch。
+
+22. antd pro 的浮层等是渲染在 root 节点以外的，所以不能用页面类名包裹起来。
+
+23. ProCard 如果包装成组件，那么外部的 ProCard 的布局无法对组件内的 ProCard 生效。
+
+24. **ProCard.Group**：属性同 ProCard，会取消卡片内容边距，用于将多个卡片进行分组。直接用 ProCard 包裹卡片列表，会有内边距。
 
