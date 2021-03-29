@@ -180,7 +180,14 @@
 
     如果同时发出若干个异步请求，需求是当所有异步请求都响应才做下一步操作，可以使用 `loading.global()` 方法，该方法监听所有异步请求的状态。
 
-20. antd 的**权限管理**
+20. antd 的**权限管理**（`components/Authorized/...`）
+
+    - `index.tsx`：组件判断逻辑，返回`RenderAuthorize(Authorized)`。
+    - `renderAuthorize.ts`：实际上是`(Authorized) => (currentAuthority) => { ... }`，最终返回的还是`Authorized`组件。根据 currentAuthority 的不同类型导出 CURRENT 。
+    - `Authorized.tsx`：调用 checkPermission 返回不同的渲染结果。
+    - `CheckPermissions.tsx`：判断当前组件权限和当前用户的权限是否匹配。
+    - `AuthorizedRoute.tsx`：返回 Authorized 组件包裹的 Route 组件。
+    - `PromiseRender.tsx`：异步过程中显示加载动画。
 
 21. umi 的 redux 由 dva 管理，使用 hooks 和 props 获取 dispatch 方法以外，还可以使用 `import { getDvaApp } from 'umi'`获取到 dva 实例，获取到 dva 的 store （`getDvaApp()._store.dispatch`），全局的调用 dispatch。
 
