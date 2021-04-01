@@ -199,51 +199,81 @@
 
 25. **复制图片/保存图片**：
 
-    - **QRCode.js** 是一个用于生成二维码的 JavaScript 库。主要是通过获取 DOM 的标签,再通过 HTML5 Canvas 绘制而成,不依赖任何库。
+- **QRCode.js** 是一个用于生成二维码的 JavaScript 库。主要是通过获取 DOM 的标签,再通过 HTML5 Canvas 绘制而成,不依赖任何库。
 
-      ```ts
-      new QRCode(document.getElementById("qrcode"), "http://www.runoob.com");  // 设置要生成二维码的链接
-      ```
+  ```ts
+  new QRCode(document.getElementById("qrcode"), "http://www.runoob.com");  // 设置要生成二维码的链接
+  ```
 
-    - 要在前端生成图片，自然会想到利用Canvas技术来做，但是如何利用Canvas在团队内有两种思路：第一种是完全自己封装Canvas API来作图，第二种是直接使用开源库，比如流行的 **html2canvas** 库。html2canvas库的工作原理并不是真正的“截图”，而是读取网页上的目标DOM节点的信息来绘制canvas，所以它并不支持所有的css属性，而且期望使用的图片跟当前域名同源，不过官方也提供了一些方法来解决跨域图片的加载问题。
+- 要在前端生成图片，自然会想到利用Canvas技术来做，但是如何利用Canvas在团队内有两种思路：第一种是完全自己封装Canvas API来作图，第二种是直接使用开源库，比如流行的 **html2canvas** 库。html2canvas库的工作原理并不是真正的“截图”，而是读取网页上的目标DOM节点的信息来绘制canvas，所以它并不支持所有的css属性，而且期望使用的图片跟当前域名同源，不过官方也提供了一些方法来解决跨域图片的加载问题。
 
-      使用方法很简单，引入 html2canvas 库以后，拿到目标 dom 调用一下 html2canvas 方法就能生成canvas对象了，由于我们的目标是生成图片，所以还需要再调用 `canvas.toDataURL()` 方法生成`<img>`标签的可用数据。
+- 使用方法很简单，引入 html2canvas 库以后，拿到目标 dom 调用一下 html2canvas 方法就能生成canvas对象了，由于我们的目标是生成图片，所以还需要再调用 `canvas.toDataURL()` 方法生成`<img>`标签的可用数据。
 
-      ## base64
+  
 
-      由于HTTP协议是文本协议，所以在HTTP协议下传输二进制数据需要将二进制数据转换为字符数据。然而直接转换是不行的。因为网络传输只能传输可打印字符。
+  **base64**：
 
-      问： 什么是“可打印字符”呢？
-      答： 在ASCII码中规定，0~31、128这33个字符属于控制字符，32~127这95个字符属于可打印字符，也就是说网络传输只能传输这95个字符，不在这个范围内的字符无法传输。
+  由于HTTP协议是文本协议，所以在HTTP协议下传输二进制数据需要将二进制数据转换为字符数据。然而直接转换是不行的。因为网络传输只能传输可打印字符。
 
-      问： 那么该怎么才能传输其他字符呢？
-      答： 其中一种方式就是使用Base64。Base64一般用于在HTTP协议下传输二进制数据。
+  问： 什么是“可打印字符”呢？
+  答： 在ASCII码中规定，0~31、128这33个字符属于控制字符，32~127这95个字符属于可打印字符，也就是说网络传输只能传输这95个字符，不在这个范围内的字符无法传输。
 
-      
+  问： 那么该怎么才能传输其他字符呢？
+  答： 其中一种方式就是使用Base64。Base64一般用于在HTTP协议下传输二进制数据。
 
-      HTML规范中已经规定了base64转换的API，window对象上可以访问到base64编码和解码的方法，直接调用即可。
+  HTML规范中已经规定了base64转换的API，window对象上可以访问到base64编码和解码的方法，直接调用即可。
 
-      ```ts
-      window.atob() // 对base64编码过的字符串进行解码
-      window.btoa() // 对ASCII编码的字符串进行base64编码（不支持汉字，汉字可通过URIencode预处理后再编码）
-      ```
+  ```ts
+  window.atob() // 对base64编码过的字符串进行解码
+  window.btoa() // 对ASCII编码的字符串进行base64编码（不支持汉字，汉字可通过URIencode预处理后再编码）
+  ```
 
-      ## Uint8Array
+  **Uint8Array**
 
-      **`Uint8Array`** 数组类型表示一个8位无符号整型数组，创建时内容被初始化为0。创建完后，可以以对象的方式或使用数组下标索引的方式引用数组中的元素。
+  **`Uint8Array`** 数组类型表示一个8位无符号整型数组，创建时内容被初始化为0。创建完后，可以以对象的方式或使用数组下标索引的方式引用数组中的元素。
 
-      
+  **URL.createObjectURL()**
 
-      ## URL.createObjectURL()
+  **`URL.createObjectURL()`** 静态方法会创建一个 [`DOMString`](https://developer.mozilla.org/zh-CN/docs/Web/API/DOMString)，其中包含一个表示参数中给出的对象的URL。这个 URL 的生命周期和创建它的窗口中的 [`document`](https://developer.mozilla.org/zh-CN/docs/Web/API/Document) 绑定。这个新的URL 对象表示指定的 [`File`](https://developer.mozilla.org/zh-CN/docs/Web/API/File) 对象或 [`Blob`](https://developer.mozilla.org/zh-CN/docs/Web/API/Blob) 对象。简单的理解一下就是将一个`file`或`Blob`类型的对象转为`UTF-16`的字符串，并保存在当前操作的`document`下。
 
-      **`URL.createObjectURL()`** 静态方法会创建一个 [`DOMString`](https://developer.mozilla.org/zh-CN/docs/Web/API/DOMString)，其中包含一个表示参数中给出的对象的URL。这个 URL 的生命周期和创建它的窗口中的 [`document`](https://developer.mozilla.org/zh-CN/docs/Web/API/Document) 绑定。这个新的URL 对象表示指定的 [`File`](https://developer.mozilla.org/zh-CN/docs/Web/API/File) 对象或 [`Blob`](https://developer.mozilla.org/zh-CN/docs/Web/API/Blob) 对象。简单的理解一下就是将一个`file`或`Blob`类型的对象转为`UTF-16`的字符串，并保存在当前操作的`document`下。
+  `URL.createObjectURL(file)`得到本地内存容器的`URL`地址，方便预览，多次使用需要注意手动释放内存的问题，性能优秀。 `FileReader.readAsDataURL(file)`胜在直接转为`base64`格式，可以直接用于业务，无需二次转换格式。
 
-      `URL.createObjectURL(file)`得到本地内存容器的`URL`地址，方便预览，多次使用需要注意手动释放内存的问题，性能优秀。 `FileReader.readAsDataURL(file)`胜在直接转为`base64`格式，可以直接用于业务，无需二次转换格式。
+  **复制文案**：
 
-      
+- **Window.getSelection**：返回一个 Selection 对象，表示用户选择的文本范围或光标的当前位置。如果想要将 selection 转换为字符串，可通过连接一个空字符串（""）或使用 toString() 方法。
 
-      
+  ```ts
+  function foo() {
+      let selObj = window.getSelection();
+      console.log(selObj);
+      let selRange = selObj.getRangeAt(0);
+    	var selectedText = selObj.toString();
+  }
+  ```
 
-      
+  在Firefox, Edge (非 Chromium 版本) 及 Internet Explorer 中没有这个API。
 
-      
+  ```ts
+  if (window.getSelection) {
+      var selection = window.getSelection();
+      var range = document.createRange();
+      range.selectNode(targetNode);
+      selection.removeAllRanges();
+      selection.addRange(range);
+      document.execCommand('copy')
+  }
+  ```
+
+- 在IE等浏览器中：
+
+  ```ts
+  if (document.body.createTextRange) {
+      //ie
+      var range = document.body.createTextRange(); // 该属性是IE专有的。尽管IE很好地支持它，但大部分其它浏览器已经不支持该属性。
+      range.moveToElementText(targetNode); // 使区域包含指定元素的文本
+      range.select();
+  }
+  ```
+
+  
+
