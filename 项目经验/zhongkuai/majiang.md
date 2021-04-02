@@ -121,3 +121,10 @@
 
     
 
+19. [4.13用户授权信息修改](https://developers.weixin.qq.com/community/develop/doc/000cacfa20ce88df04cb468bc52801?blockType=1)：
+    - 2021年2月23日起，若小程序已在微信开放平台进行绑定，则通过wx.login接口获取的登录凭证可直接换取unionID
+    - 2021年4月13日后，`getUserInfo` 和 `open-type="getUserInfo" ` 无法获取到用户信息了，取而代之是getUserProfile接口（需用户确认）。
+    - **以前的版本**：若小程序已在微信开放平台进行绑定，原wx.login接口获取的登录凭证若需换取unionID需满足以下条件：
+      1. 如果开发者帐号下存在同主体的公众号，并且该用户已经关注了该公众号
+      2. 如果开发者帐号下存在同主体的公众号或移动应用，并且该用户已经授权登录过该公众号或移动应用
+

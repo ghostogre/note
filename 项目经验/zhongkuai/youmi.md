@@ -277,3 +277,5 @@
 
   
 
+26. [编译打包](https://umijs.org/zh-CN/guide/boost-compile-speed#%E6%9F%A5%E7%9C%8B%E5%8C%85%E7%BB%93%E6%9E%84)：antd pro 项目是使用 umi 创建的，`config/conifg`里的配置对应了 `.umirc.js`里的配置，优化打包的时候大部分不需要我们自己修改。antd pro 默认使用了esbuild进行编译。antd中的DatePicker组件使用了moment.js作为时间相关的工具库，moment.js在代码中占了344.98KB，这其中还包括语言相关的文件287.42KB，antd pro默认配置了`ignoreMomentLocale: true`，帮我们删除了moment的locale相关文件。我们可以配置 external 实现 cdn 引入 react 和 reactDom。
+
