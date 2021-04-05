@@ -205,13 +205,28 @@
   new QRCode(document.getElementById("qrcode"), "http://www.runoob.com");  // 设置要生成二维码的链接
   ```
 
-- 要在前端生成图片，自然会想到利用Canvas技术来做，但是如何利用Canvas在团队内有两种思路：第一种是完全自己封装Canvas API来作图，第二种是直接使用开源库，比如流行的 **html2canvas** 库。html2canvas库的工作原理并不是真正的“截图”，而是读取网页上的目标DOM节点的信息来绘制canvas，所以它并不支持所有的css属性，而且期望使用的图片跟当前域名同源，不过官方也提供了一些方法来解决跨域图片的加载问题。
+- 要在前端生成图片，自然会想到利用Canvas技术来做，但是如何利用Canvas在团队内有两种思路：第一种是完全自己封装Canvas API来作图，第二种是直接使用开源库，比如流行的 **html2canvas** 库（`html2canvas(element, { useCORS: true })`返回一个promise，then的参数是一个 htmlCanvasElement）。html2canvas库的工作原理并不是真正的“截图”，而是读取网页上的目标DOM节点的信息来绘制canvas，所以它并不支持所有的css属性，而且期望**使用的图片跟当前域名同源**，不过官方也提供了一些方法来解决跨域图片的加载问题。
 
-- 使用方法很简单，引入 html2canvas 库以后，拿到目标 dom 调用一下 html2canvas 方法就能生成canvas对象了，由于我们的目标是生成图片，所以还需要再调用 `canvas.toDataURL()` 方法生成`<img>`标签的可用数据。
+- 使用方法很简单，引入 html2canvas 库以后，拿到目标 dom 调用一下 html2canvas 方法就能生成canvas对象了，由于我们的目标是生成图片，所以还需要再调用 `canvas.toDataURL()` 方法生成`<img>`标签的可用数据（`HTMLCanvasElement.toDataURL()` 方法返回一个包含图片展示的 data URI ）。
 
-  
+- Data URLs 由四个部分组成：前缀(`data:`)、指示数据类型的MIME类型、如果非文本则为可选的`base64`标记、数据本身：`data:[<mediatype>][;base64],<data>`。
 
-  **base64**：
+  ```ts
+  		let arr = dataUrl.split(',');
+      const matchResult = arr[0].match(/:(.*?);/)
+      if (!!matchResult) {
+        let mime = matchResult[1];
+        let bstr = atob(arr[1]);
+        let n = bstr.length;
+        let u8arr = new Uint8Array(n);
+        while (n--) {
+          u8arr[n] = bstr.charCodeAt(n);
+        }
+        return new Blob([u8arr], { type: mime });
+  		}
+  ```
+
+- **base64**：
 
   由于HTTP协议是文本协议，所以在HTTP协议下传输二进制数据需要将二进制数据转换为字符数据。然而直接转换是不行的。因为网络传输只能传输可打印字符。
 
@@ -232,15 +247,19 @@
 
   **`Uint8Array`** 数组类型表示一个8位无符号整型数组，创建时内容被初始化为0。创建完后，可以以对象的方式或使用数组下标索引的方式引用数组中的元素。
 
+  
+
   **URL.createObjectURL()**
 
   **`URL.createObjectURL()`** 静态方法会创建一个 [`DOMString`](https://developer.mozilla.org/zh-CN/docs/Web/API/DOMString)，其中包含一个表示参数中给出的对象的URL。这个 URL 的生命周期和创建它的窗口中的 [`document`](https://developer.mozilla.org/zh-CN/docs/Web/API/Document) 绑定。这个新的URL 对象表示指定的 [`File`](https://developer.mozilla.org/zh-CN/docs/Web/API/File) 对象或 [`Blob`](https://developer.mozilla.org/zh-CN/docs/Web/API/Blob) 对象。简单的理解一下就是将一个`file`或`Blob`类型的对象转为`UTF-16`的字符串，并保存在当前操作的`document`下。
 
   `URL.createObjectURL(file)`得到本地内存容器的`URL`地址，方便预览，多次使用需要注意手动释放内存的问题，性能优秀。 `FileReader.readAsDataURL(file)`胜在直接转为`base64`格式，可以直接用于业务，无需二次转换格式。
 
+  
+
   **复制文案**：
 
-- **Window.getSelection**：返回一个 Selection 对象，表示用户选择的文本范围或光标的当前位置。如果想要将 selection 转换为字符串，可通过连接一个空字符串（""）或使用 toString() 方法。
+- **选择图片 - Window.getSelection**：返回一个 Selection 对象，表示用户选择的文本范围或光标的当前位置。如果想要将 selection 转换为字符串，可通过连接一个空字符串（""）或使用 toString() 方法。
 
   ```ts
   function foo() {
@@ -275,7 +294,33 @@
   }
   ```
 
-  
+
+- 保存图片：
+
+  ```ts
+  		let a = document.createElement('a');
+      document.body.scrollTop = document.documentElement.scrollTop = 0
+      html2canvas(canvasID,{
+        useCORS: true
+      }).then(canvas => {
+        const dom = document.body.appendChild(canvas);
+        dom.style.display = 'none';
+        a.style.display = 'none';
+        document.body.removeChild(dom);
+        const blob = dataURLToBlob(dom.toDataURL('image/png'));
+        // URL.createObjectURL(blob) 会产生一个类似 blob:d3958f5c-0777-0845-9dcf-2cb28783acaf 这样的URL字符串
+        // 可以像使用普通 URL 那样使用它，比如用在 img.src 上。
+        a.setAttribute('href', URL.createObjectURL(blob));
+        //这块是保存图片操作  可以设置保存的图片的信息
+        a.setAttribute('download', imgText + '.png');
+        document.body.appendChild(a);
+        a.click();
+        // URL.revokeObjectURL() 静态方法用来释放一个之前已经存在的
+        // 通过调用 URL.createObjectURL() 创建的 URL 对象。
+        URL.revokeObjectURL(blob);
+        document.body.removeChild(a);
+      });
+  ```
 
 26. [编译打包](https://umijs.org/zh-CN/guide/boost-compile-speed#%E6%9F%A5%E7%9C%8B%E5%8C%85%E7%BB%93%E6%9E%84)：antd pro 项目是使用 umi 创建的，`config/conifg`里的配置对应了 `.umirc.js`里的配置，优化打包的时候大部分不需要我们自己修改。antd pro 默认使用了esbuild进行编译。antd中的DatePicker组件使用了moment.js作为时间相关的工具库，moment.js在代码中占了344.98KB，这其中还包括语言相关的文件287.42KB，antd pro默认配置了`ignoreMomentLocale: true`，帮我们删除了moment的locale相关文件。我们可以配置 external 实现 cdn 引入 react 和 reactDom。
 
