@@ -188,6 +188,7 @@
     - `CheckPermissions.tsx`：判断当前组件权限和当前用户的权限是否匹配。
     - `AuthorizedRoute.tsx`：返回 Authorized 组件包裹的 Route 组件。
     - `PromiseRender.tsx`：异步过程中显示加载动画。
+    - V4 的权限不能阻止直接输入URL进入页面，需要依靠后端返回权限路由才能实现，或者使用V5版本。
 
 21. umi 的 redux 由 dva 管理，使用 hooks 和 props 获取 dispatch 方法以外，还可以使用 `import { getDvaApp } from 'umi'`获取到 dva 实例，获取到 dva 的 store （`getDvaApp()._store.dispatch`），全局的调用 dispatch。
 
@@ -205,7 +206,9 @@
   new QRCode(document.getElementById("qrcode"), "http://www.runoob.com");  // 设置要生成二维码的链接
   ```
 
-- 要在前端生成图片，自然会想到利用Canvas技术来做，但是如何利用Canvas在团队内有两种思路：第一种是完全自己封装Canvas API来作图，第二种是直接使用开源库，比如流行的 **html2canvas** 库（`html2canvas(element, { useCORS: true })`返回一个promise，then的参数是一个 htmlCanvasElement）。html2canvas库的工作原理并不是真正的“截图”，而是读取网页上的目标DOM节点的信息来绘制canvas，所以它并不支持所有的css属性，而且期望**使用的图片跟当前域名同源**，不过官方也提供了一些方法来解决跨域图片的加载问题。
+- 要在前端生成图片，自然会想到利用Canvas技术来做，但是如何利用Canvas在团队内有两种思路：第一种是完全自己封装Canvas API来作图，第二种是直接使用开源库，比如流行的 **html2canvas** 库（`html2canvas(element, { useCORS: true, allowTaint: false // 允许跨域 })`返回一个promise，then的参数是一个 htmlCanvasElement）。html2canvas库的工作原理并不是真正的“截图”，而是读取网页上的目标DOM节点的信息来绘制canvas，所以它并不支持所有的css属性，而且期望**使用的图片跟当前域名同源**，不过官方也提供了一些方法来解决跨域图片的加载问题。
+
+- 在前端开发中，HTML中的 `img` 标签是默认支持跨域的，但是这个规则canvas不认。使用html2canvs转换canvas的时候，如果使用了不同域的图片就会报错。
 
 - 使用方法很简单，引入 html2canvas 库以后，拿到目标 dom 调用一下 html2canvas 方法就能生成canvas对象了，由于我们的目标是生成图片，所以还需要再调用 `canvas.toDataURL()` 方法生成`<img>`标签的可用数据（`HTMLCanvasElement.toDataURL()` 方法返回一个包含图片展示的 data URI ）。
 
@@ -323,4 +326,5 @@
   ```
 
 26. [编译打包](https://umijs.org/zh-CN/guide/boost-compile-speed#%E6%9F%A5%E7%9C%8B%E5%8C%85%E7%BB%93%E6%9E%84)：antd pro 项目是使用 umi 创建的，`config/conifg`里的配置对应了 `.umirc.js`里的配置，优化打包的时候大部分不需要我们自己修改。antd pro 默认使用了esbuild进行编译。antd中的DatePicker组件使用了moment.js作为时间相关的工具库，moment.js在代码中占了344.98KB，这其中还包括语言相关的文件287.42KB，antd pro默认配置了`ignoreMomentLocale: true`，帮我们删除了moment的locale相关文件。我们可以配置 external 实现 cdn 引入 react 和 reactDom。
+27. 
 
