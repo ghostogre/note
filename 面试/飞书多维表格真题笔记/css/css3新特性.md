@@ -184,6 +184,21 @@ radial-gradient([<position> || <angle>,]?[<shape> || <size>,]?<color-stop>,<colo
 
 ### 圆锥渐变
 
+#### conic-gradient
+
+和另外两个渐变的区别在哪里呢？
+
+- `linear-gradient` 线性渐变的方向是一条直线，可以是任何角度
+- `radial-gradient`径向渐变是从圆心点以椭圆形状向外扩散
+
+圆锥渐变的渐变方向和起始点：**起始点是图形中心，然后以顺时针方向绕中心实现渐变效果**。
+
+指定圆锥渐变每一段的比例，配合百分比，可以很轻松的实现饼图。
+
+#### 重复圆锥渐变 `repaeting-conic-gradient`
+
+使用了 `repaeting-conic-gradient` 之后，会自动填充满整个区域。
+
 ## Filter（滤镜）
 
 ## 弹性布局
@@ -198,8 +213,6 @@ CSS网格布局（又称“网格”），是一种二维网格布局系统。
 - 网格轨道（Grid Track）：两个**相邻的网格线之间**为网格轨道。
 - 网格单元（Grid Cell）：**两个相邻的列网格线和两个相邻的行网格线**组成的是网格单元，它是最小的网格单元。
 - 网格区（Grid Area）：网格区是由任意数量网格单元组成。
-
-
 
 > 1. https://www.jianshu.com/p/d183265a8dad
 

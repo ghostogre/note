@@ -182,12 +182,34 @@
 
 20. antd 的**权限管理**（`components/Authorized/...`）
 
-    - `index.tsx`：组件判断逻辑，返回`RenderAuthorize(Authorized)`。
+    - `index.tsx`：组件判断逻辑，默认返回`RenderAuthorize(Authorized)`。它接收当前权限作为参数，返回一个权限对象，该对象提供以下几种使用方式：
+
+      1. Authorized
+
+      2. **Authorized.AuthorizedRoute**：参数：authority 、redirectPath 、Route（所拥有的参数，如 component 、render）。使用 Authorized 组件，通过时渲染 Route对象（component， ...rest），未通过时渲染 Route对象 （Redirect to redirectPath）
+
+      3. **Authorized.Secured**：注解方式， `@Authorized.Secured(authority, error)` 。**注解方式**包装 target，使用 CheckPermissions 直接进行判断，未通过则返回 error或者403组件。
+
+      4. **Authorized.check**：函数形式的 Authorized，用于某些不能被 HOC 包裹的组件。 `Authorized.check(authority, target, Exception)`  注意：传入一个 Promise 时，无论正确还是错误返回的都是一个 ReactClass。
+
+         参数：authority、target、Exception，本身就是 CheckPermissions，通过时返回 target，未通过则返回 Exception
+
     - `renderAuthorize.ts`：实际上是`(Authorized) => (currentAuthority) => { ... }`，最终返回的还是`Authorized`组件。根据 currentAuthority 的不同类型导出 CURRENT 。
-    - `Authorized.tsx`：调用 checkPermission 返回不同的渲染结果。
+
+    - `Authorized.tsx`：参数：children、authority、noMatch，调用 checkPermission 返回不同的渲染结果。
+
+      1. renderAuthorize 方法实际上是将传入的权限解析保存（**CURRENT** 变量）， 返回 Authorized 权限对象
+
+      2. Authorized 权限对象将自身的权限传入核心方法 CheckPermissions 中
+
+      3. CheckPermissions 引入 renderAuthorize 的 CURRENT 变量，将 Authorized 传入的权限在 CURRENT 中校验，通过校验则返回通过的组件（渲染的目标），否则将渲染未通过的组件
+
     - `CheckPermissions.tsx`：判断当前组件权限和当前用户的权限是否匹配。
+
     - `AuthorizedRoute.tsx`：返回 Authorized 组件包裹的 Route 组件。
+
     - `PromiseRender.tsx`：异步过程中显示加载动画。
+
     - V4 的权限不能阻止直接输入URL进入页面，需要依靠后端返回权限路由才能实现，或者使用V5版本。
 
 21. umi 的 redux 由 dva 管理，使用 hooks 和 props 获取 dispatch 方法以外，还可以使用 `import { getDvaApp } from 'umi'`获取到 dva 实例，获取到 dva 的 store （`getDvaApp()._store.dispatch`），全局的调用 dispatch。
