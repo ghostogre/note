@@ -348,5 +348,28 @@
   ```
 
 26. [编译打包](https://umijs.org/zh-CN/guide/boost-compile-speed#%E6%9F%A5%E7%9C%8B%E5%8C%85%E7%BB%93%E6%9E%84)：antd pro 项目是使用 umi 创建的，`config/conifg`里的配置对应了 `.umirc.js`里的配置，优化打包的时候大部分不需要我们自己修改。antd pro 默认使用了esbuild进行编译。antd中的DatePicker组件使用了moment.js作为时间相关的工具库，moment.js在代码中占了344.98KB，这其中还包括语言相关的文件287.42KB，antd pro默认配置了`ignoreMomentLocale: true`，帮我们删除了moment的locale相关文件。我们可以配置 external 实现 cdn 引入 react 和 reactDom。
-27. 
+
+27. Canvas 远程图片：canvas中使用远程图片会出现跨域问题，跨域加载的图片会污染canvas，进而导致canvas无法导出数据（官方建议自己搭建一个 node 服务器解决）。这是为了避免未经许可拉取远程网站信息而导致的用户隐私泄露。html2canvas 通过`canvas`将`HTML`生成的`DOM`节点绘制到画布上，再可以通过自己的需求转换成图片。
+
+    跨域的图片虽然可以被canvas读取，但是这也会导致canvas被污染，进而导致canvas无法导出`<img>`标签可用的图片数据。
+
+    除了请求头要添加Origin之外，服务器的响应头中也必须要包含正确的Access-Control-Allow-Origin才行，否则就说明服务器并不接受客户端的跨域请求，一切都是为了安全。
+
+    - html2canvas的配置项中配置 `allowTaint:true` 或` useCORS:true`（二者不可共同使用）
+    - img标签增加 `crossOrigin='anonymous'`
+    - 图片服务器配置`Access-Control-Allow-Origin`或使用代理，第三步是最重要的，不设置则前两步设置了也无效。
+
+    > html2canvas库需要我们先提供一段DOM节点，然后它再读取并解析这一段DOM节点生成canvas对象。如果DOM节点中已经使用了<img>标签的话，它也会解析这个<img>标签的src属性，然后重新创建一个Image对象，给它添加crossOrigin="anonymous"属性后尝试以跨域的方式重新读取图片数据。需要注意的是，一般CDN上的图片都是带有缓存响应头并且会在浏览器端缓存的，而且**缓存的不仅仅是图片数据，还有HTTP响应头**。所以问题的根本原因我们就找到了，当html2canvas尝试以跨域的方式去读取图片数据时，它读取到的是浏览器的缓存数据，而且因为我们没有给DOM节点中的`<img>`标签添加crossorigin="anonymous"属性，所以缓存数据是不带Access-Control-Allow-Origin响应头的，进而导致html2canvas库读取到的图片数据污染了生成的canvas对象，最终致使canvas导出数据报错。
+
+    看到一篇文章说的，在图片的src路径后面加一个时间戳（`'?temp=' + new Date().valueOf()`），这样可以避免读到缓存，但是却会导致CDN的缓存被击穿（读缓存没读到数据，又同时去数据库去取数据，引起数据库压力瞬间增大，造成过大压力）。
+
+    如果你要用来生成canvas的dom中包含的`<img>`图片，之前已经被你的用户访问过（例如你是在对线上现有的业务进行改造，或者说之前修改的时候没有加 cross-origin ），显然之前你应该没有给`<img>`标签添加`crossorigin="anonymous"`属性，那么请注意，这时候你的用户的浏览器已经把这些图片缓存在了本地，所以即便你按照上面的步骤都做了也没用，因为访问图片时读到的都是不带Access-Control-Allow-Origin等响应头的缓存数据。这个时候你要做的，就是给要生成canvas的dom中的所有`<img>`标签的src添加一个任意的字符串，只要能起到重新发起图片读取请求，从而避免读取到浏览器缓存数据即可。注意，不要添加随机字符串，那会击穿CDN缓存的，随便添加一个固定的字符串，能够避免读取到浏览器的缓存数据就可以了。
+
+    **其他方法**
+
+    因为只是canvas里面会发生跨域，我们在HTML转图片第一步是在 img 里面加载图片，然后再使用 html2canvas 转换成 canvas 。我们可以在 html2canvas 处理之前，先把图片链接转换成 base64，这样到 html2canvas 处理的时候就不用担心跨域问题，或者说直接让接口返回 base64 。这种方法更加稳妥，上面的方法有可能无效。
+
+28. 同时复制图片和文字到剪切板再去粘贴：Chrome内核的浏览器是同时复制文字和图片，只保留文字。Safari浏览器就能同时复制文字和图片。不同应用程序底层的逻辑处理是不同的，在粘贴操作之后也会显示出区别。
+
+
 
