@@ -1,6 +1,6 @@
 ## 表单
 
-antd pro 里的 proForm 表单组件其实就是封装好了 Form.Item 和 表单组件。
+antd pro 里的 ProForm 表单组件其实就是封装好了 ProForm.Item 和 表单组件。
 
 ### 自定义封装表单组件
 
