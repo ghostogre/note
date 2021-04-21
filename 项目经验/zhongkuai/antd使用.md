@@ -97,6 +97,7 @@ ProForm.Item 的 children 会被注入 FormInstance ，我们可以通过注入�
               }}
             >
               <Upload
+                accept='image/*'
                 listType="picture-card"
                 showUploadList={false}
                 onChange={handleChange}
@@ -153,3 +154,8 @@ ProForm 组件的 transform props 可以在提交的时候格式化为想要的�
 ## Table
 
 table 的 render 可以返回一个数组，渲染的时候会自动调整数组元素的间距。但是这个时候，你需要给这些数组里返回的ReactComponent 提供一个key，否则会一直控制台报错。
+
+## 升级V5
+
+> [文档](https://beta-pro.ant.design/docs/upgrade-v5-cn#initialstate)
+
