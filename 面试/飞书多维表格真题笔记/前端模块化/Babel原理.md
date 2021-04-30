@@ -83,3 +83,118 @@ transform : 用于字符串转码得到AST 。
 #### babel-types
 
 Babel Types模块是一个用于 AST 节点的 Lodash 式工具库。它包含了构造、验证以及变换 AST 节点的方法。 该工具库包含考虑周到的工具方法，对编写处理AST逻辑非常有用。 
+
+#### Visitors (访问者)
+
+```ts
+function square(n) {
+    return n * n;
+}
+
+/** ast */
+{
+    type: "FunctionDeclaration",
+    id: {
+        type: "Identifier",
+        name: "square"
+    },
+    params: [{
+        type: "Identifier",
+        name: "n"
+    }],
+    body: {
+        type: "BlockStatement",
+        body: [{
+            type: "ReturnStatement",
+            argument: {
+                type: "BinaryExpression",
+                operator: "*",
+                left: {
+                    type: "Identifier",
+                    name: "n"
+                },
+                right: {
+                    type: "Identifier",
+                    name: "n"
+                }
+            }
+        }]
+    }
+}
+```
+
+为了遍历 AST，我们定义了访问者 Visitor，针对每一个 Identifier 类型的节点，设置了进入和退出时执行的操作。 
+
+```js
+const MyVisitor = {
+    Identifier: {
+        enter() {},
+        exit() {}
+    }
+};
+path.traverse(MyVisitor);
+```
+
+> 值得一提的是，Visitor 中的键可以使用 | 以表示定义多种节点：
+>
+> ```js
+> "ExportNamedDeclaration|Flow"(path) {}
+> ```
+
+`Babel` 会维护一个称作 `Visitor` 的对象，这个对象定义了用于 `AST` 中获取具体节点的方法。一个 `Visitor` 一般来说是这样的：
+
+```js
+import * as t from "@babel/types";
+var visitor = {
+  	// 箭头函数对应的访问者方法(节点)
+    ArrowFunction(path) {
+      	// 该路径对应的节点信息  
+        let { id, params, body, generator, async } = path.node;
+      	// 箭头函数我们会简写{return a+b} 为 a+b    
+        if (!t.isBlockStatement(body)) {    
+          const node = t.returnStatement(body);
+          body = t.blockStatement([node]);
+        }
+        // 进行节点替换 (arrowFunctionExpression -> functionExpression)
+      	path.replaceWith(t.FunctionDeclaration(id, params, body));
+    },
+    IfStatement() {
+        console.log('我是一个if语句');
+    },
+    CallExpression() {},
+  	/** 两个时机：进入节点enter 和离开节点 exit */
+  	Identifier: {
+        enter() {
+            console.log('Identifier enter');
+        },
+        exit() {
+            console.log('Identifier exit');
+        }
+    }
+};
+```
+
+当我们遍历 `AST` 的时候，如果匹配上一个 `type`，就会调用 `visitor` 里的方法。生成出来的 AST 结构都拥有一个 accept 方法用来接收 visitor 访问者对象的访问，而访问者其中也定义了 visit 方法(即开发者定义的函数方法)使其能够对树状结构不同节点做出不同的处理。
+
+Babel的插件模块需要我们暴露一个方法，方法内返回visitor对象。
+
+#### Paths（路径）
+
+AST 通常会有许多节点，那么**节点直接如何相互关联呢**？ 我们可以使用一个可操作和访问的巨大可变对象表示节点之间的关联关系，或者也可以用Paths（路径）来简化这件事情。
+
+**Path 是表示两个节点之间连接的对象。**
+
+在某种意义上，路径是一个节点在树中的位置以及**关于该节点各种信息的响应式 Reactive 表示**。 当你调用一个修改树的方法后，路径信息也会被更新。 Babel 帮你管理这一切，从而使得节点操作简单，尽可能做到无状态。
+
+**Paths in Visitors（存在于访问者中的路径）**
+
+当你有一个 Identifier() 成员方法的访问者时，你实际上是在访问路径而非节点。 通过这种方式，你操作的就是节点的响应式表示（译注：即路径）而非节点本身。
+
+```js
+const MyVisitor = {
+  Identifier(path) {
+    console.log("Visiting: " + path.node.name);
+  }
+};
+```
+
