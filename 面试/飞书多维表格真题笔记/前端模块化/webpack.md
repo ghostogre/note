@@ -75,6 +75,7 @@ UglifyJsPlugin.prototype.apply = function(compiler) {
 ```js
 ifBooleanArg("hot", function() {
   ensureArray(options, "plugins");
+  // 添加热更新插件
   var HotModuleReplacementPlugin = require("../lib/HotModuleReplacementPlugin");
   options.plugins.push(new HotModuleReplacementPlugin());
 });
@@ -104,7 +105,7 @@ return options;
 ```js
 var webpack = require("../lib/webpack.js");
 var compiler = webpack(options);
-// 如果没有回调函数 webpack 只会生成 compiler 而不会运行 compiler
+// 如果没有 run 回调函数 webpack 只会生成 compiler 而不会运行 compiler
 compiler.run(err => {
     if (err) {
         console.error(err)
@@ -158,7 +159,7 @@ compiler.run 后首先会触发 compile ，这一步会构建出 Compilation 对
 
   将所有资源都整合成模块，需要 css-loader 等等让我们可以直接在源文件中引用各类资源。
 
-  webpack 调用 `doBuild()` ，对每一个 `require()` 用对应的 loader 进行加工，最后生成一个 js module。
+  在 build 模块时 (`调用doBuild方法`) ，先调用相应的loader对resource进行加工，生成一段js代码后交给acorn解析生成AST.所以不管是css文件，还是jpg文件，还是html模版，最终经过loader处理会变成一个module：一段js代码。
 
   ```ts
   /**
@@ -168,17 +169,17 @@ compiler.run 后首先会触发 compile ，这一步会构建出 Compilation 对
   */
   Compilation.prototype._addModuleChain = function process(context, dependency, onModule, callback) {
     var start = this.profile && +new Date();
-    ...
+    // ...
     // 根据模块的类型获取对应的模块工厂并创建模块
     var moduleFactory = this.dependencyFactories.get(dependency.constructor);
-    ...
+    // ...
     moduleFactory.create(context, dependency, function(err, module) {
       // 将其加入module链当中
       var result = this.addModule(module);
-      ...
+      // ...
       // buildModule内部是调用 module.build() 进行module构建。
       this.buildModule(module, function(err) {
-        ...
+        // ...
         // 构建模块，添加依赖模块
       }.bind(this));
     }.bind(this));
@@ -216,14 +217,14 @@ compiler.run 后首先会触发 compile ，这一步会构建出 Compilation 对
        var factory = _this.dependencyFactories.get(dependencies[i][0].constructor);
        factories[i] = [factory, dependencies[i]];
      }
-     ...
+     // ...
      // 与当前模块构建步骤相同
    }
    ```
 
 ##### 构建细节
 
-module 是 webpack 构建的核心实体，也是所有 module 的 父类，它有几种不同子类：`NormalModule` , `MultiModule` , `ContextModule` , `DelegatedModule` 等。但这些核心实体都是在构建中都会去调用对应方法，也就是 `build()` 。
+module 是 webpack 构建的核心实体，也是所有 module 的 父类，它有几种不同子类：`NormalModule` , `MultiModule` , `ContextModule` , `DelegatedModule` 等。但这些核心实体都是在构建中都会去调用对应方法，也就是 `build()` ：
 
 ```js
 // 初始化module信息，如context,id,chunks,dependencies等。
@@ -232,7 +233,7 @@ NormalModule.prototype.build = function build(options, compilation, resolver, fs
   this.built = true;
   return this.doBuild(options, compilation, resolver, fs, function(err) {
     // 指定模块引用，不经acorn解析
-    if (options.module && options.module.noParse) { // noParse 是 module 中的属性，表示不去解析属性值代表的库的依赖
+    if (options.module && options.module.noParse) { // noParse 是 options.module 中的属性，表示不去解析属性值代表的库的依赖
       if (Array.isArray(options.module.noParse)) {
         if (options.module.noParse.some(function(regExp) {
             return typeof regExp === "string" ?
@@ -240,11 +241,15 @@ NormalModule.prototype.build = function build(options, compilation, resolver, fs
               regExp.test(this.request);
           }, this)
         ) {
+          // regExp 如果是字符串的话，查找 this.request 是否以 regExp 开头（或者是头一个元素）。
+          // 否则使用正则匹配 regExp
+          // 匹配成功调用 callback
           return callback();
         }
       } else if (typeof options.module.noParse === "string" ?
         this.request.indexOf(options.module.noParse) === 0 :
-          options.module.noParse.test(this.request)) {
+          options.module.noParse.test(this.request)
+      ) {
         return callback();
       }
     }
@@ -277,38 +282,212 @@ NormalModule.prototype.build = function build(options, compilation, resolver, fs
 
 ```js
 /**
- * 主要完成了chunk的构建
- * 主要是收集 modules、chunks，使用 template（在Compilation的构建函里初始化了几种Template：MainTemplate、ChunkTemplate等）对chunk进行编译
- */
-Compilation.prototype.seal = function seal(callback) {
-  this.applyPlugins("seal"); // 触发插件的seal事件
-  this.preparedChunks.sort(function(a, b) {
-    if (a.name < b.name) {
-      return -1;
-    }
-    if (a.name > b.name) {
-      return 1;
-    }
-    return 0;
-  });
-  this.preparedChunks.forEach(function(preparedChunk) {
-    var module = preparedChunk.module;
-    var chunk = this.addChunk(preparedChunk.name, module);
-    chunk.initial = chunk.entry = true;
-    // 整理每个Module和chunk，每个chunk对应一个输出文件。
-    chunk.addModule(module); // 将 module 装入 chunk
-    module.addChunk(chunk);
-  }, this);
-  this.applyPluginsAsync("optimize-tree", this.chunks, this.modules, function(err) {
-    if (err) {
-      return callback(err);
-    }
-    ... // 触发插件的事件
-    this.createChunkAssets(); // 生成最终assets
-    ... // 触发插件的事件
-  }.bind(this));
-};
+* 较新版本的seal，大部分逻辑和流程是一样的
+* class Compilation 内的 seal 方法
+*/
+this.hooks = Object.freeze({
+	/** @type {SyncHook<[Module]>} */
+	buildModule: new SyncHook(["module"]), // 使用 new SyncHook([...]) 这样定义了大量钩子
+  ......
+})
+
+/**
+* 此方法首先查看是否为新chunk提供了名称，然后首先查看是否已经存在任何已命名的块，并重用该chunk。
+*/
+addChunk(name) {
+		if (name) {
+      // 如果已保存在namedChunks
+			const chunk = this.namedChunks.get(name);
+			if (chunk !== undefined) {
+				return chunk;
+			}
+		}
+		const chunk = new Chunk(name);
+		this.chunks.add(chunk);
+  	// ChunkGraph 的静态方法，内部存储到名为 chunkGraphForChunkMap 的 map 里。
+		ChunkGraph.setChunkGraphForChunk(chunk, this.chunkGraph);
+		if (name) {
+			this.namedChunks.set(name, chunk);
+		}
+		return chunk;
+}
+  
+seal(callback) {
+    // 触发事件点seal
+    this.hooks.seal.call();
+  
+  	this.logger.time("optimize dependencies");
+		while (this.hooks.optimizeDependencies.call(this.modules)) {
+			/* empty */
+		}
+		this.hooks.afterOptimizeDependencies.call(this.modules);
+		this.logger.timeEnd("optimize dependencies");
+
+  	/** 生成chunk */
+		this.logger.time("create chunks");
+		this.hooks.beforeChunks.call();
+  	/**
+  	* this.moduleGraph = new ModuleGraph()
+  	* ModuleGraph 里保存了_dependencyMap，_moduleMap，_originMap，_metaMap几个Map
+  	* 和一个名叫 _cache 的 WeakTupleMap
+  	* freeze 只有一句 this._cache = new WeakTupleMap()
+  	*/
+		this.moduleGraph.freeze();
+		/** @type {Map<Entrypoint, Module[]>} */
+		const chunkGraphInit = new Map();
+		for (const [name, { dependencies, includeDependencies, options }] of this
+			.entries) {
+      // 整理每个Module和chunk，每个chunk对应一个输出文件。
+			const chunk = this.addChunk(name);
+			if (options.filename) {
+				chunk.filenameTemplate = options.filename;
+			}
+			const entrypoint = new Entrypoint(options);
+			if (!options.dependOn && !options.runtime) {
+				entrypoint.setRuntimeChunk(chunk);
+			}
+			entrypoint.setEntrypointChunk(chunk);
+			this.namedChunkGroups.set(name, entrypoint);
+			this.entrypoints.set(name, entrypoint);
+			this.chunkGroups.push(entrypoint);
+			connectChunkGroupAndChunk(entrypoint, chunk);
+
+			for (const dep of [...this.globalEntry.dependencies, ...dependencies]) {
+				entrypoint.addOrigin(null, { name }, /** @type {any} */ (dep).request);
+
+				const module = this.moduleGraph.getModule(dep);
+				if (module) {
+					chunkGraph.connectChunkAndEntryModule(chunk, module, entrypoint);
+					this.assignDepth(module);
+					const modulesList = chunkGraphInit.get(entrypoint);
+					if (modulesList === undefined) {
+						chunkGraphInit.set(entrypoint, [module]);
+					} else {
+						modulesList.push(module);
+					}
+				}
+			}
+
+			const mapAndSort = deps =>
+				deps
+					.map(dep => this.moduleGraph.getModule(dep))
+					.filter(Boolean)
+					.sort(compareModulesByIdentifier);
+			const includedModules = [
+				...mapAndSort(this.globalEntry.includeDependencies),
+				...mapAndSort(includeDependencies)
+			];
+
+			let modulesList = chunkGraphInit.get(entrypoint);
+			if (modulesList === undefined) {
+				chunkGraphInit.set(entrypoint, (modulesList = []));
+			}
+			for (const module of includedModules) {
+				this.assignDepth(module);
+				modulesList.push(module);
+			}
+		}
+		const runtimeChunks = new Set();
+		outer: for (const [
+			name,
+			{
+				options: { dependOn, runtime }
+			}
+		] of this.entries) {
+			if (dependOn && runtime) {
+				const err = new WebpackError(`Entrypoint '${name}' has 'dependOn' and 'runtime' specified. This is not valid.
+Entrypoints that depend on other entrypoints do not have their own runtime.
+They will use the runtime(s) from referenced entrypoints instead.
+Remove the 'runtime' option from the entrypoint.`);
+				const entry = this.entrypoints.get(name);
+				err.chunk = entry.getEntrypointChunk();
+				this.errors.push(err);
+			}
+			if (dependOn) {
+				const entry = this.entrypoints.get(name);
+				const referencedChunks = entry
+					.getEntrypointChunk()
+					.getAllReferencedChunks();
+				const dependOnEntries = [];
+				for (const dep of dependOn) {
+					const dependency = this.entrypoints.get(dep);
+					if (!dependency) {
+						throw new Error(
+							`Entry ${name} depends on ${dep}, but this entry was not found`
+						);
+					}
+					if (referencedChunks.has(dependency.getEntrypointChunk())) {
+						const err = new WebpackError(
+							`Entrypoints '${name}' and '${dep}' use 'dependOn' to depend on each other in a circular way.`
+						);
+						const entryChunk = entry.getEntrypointChunk();
+						err.chunk = entryChunk;
+						this.errors.push(err);
+						entry.setRuntimeChunk(entryChunk);
+						continue outer;
+					}
+					dependOnEntries.push(dependency);
+				}
+				for (const dependency of dependOnEntries) {
+					connectChunkGroupParentAndChild(dependency, entry);
+				}
+			} else if (runtime) {
+				const entry = this.entrypoints.get(name);
+				let chunk = this.namedChunks.get(runtime);
+				if (chunk) {
+					if (!runtimeChunks.has(chunk)) {
+						const err = new WebpackError(``);
+						const entryChunk = entry.getEntrypointChunk();
+						err.chunk = entryChunk;
+						this.errors.push(err);
+						entry.setRuntimeChunk(entryChunk);
+						continue;
+					}
+				} else {
+					chunk = this.addChunk(runtime);
+					chunk.preventIntegration = true;
+					runtimeChunks.add(chunk);
+				}
+				entry.unshiftChunk(chunk);
+				chunk.addGroup(entry);
+				entry.setRuntimeChunk(chunk);
+			}
+		}
+		buildChunkGraph(this, chunkGraphInit);
+		this.hooks.afterChunks.call(this.chunks);
+ 
+    this.hooks.optimizeTree.callAsync(this.chunks, this.modules, err => {
+        // ......
+        this.hooks.additionalAssets.callAsync(...)
+        if (this.hooks.shouldGenerateChunkAssets.call() !== false) {
+					this.hooks.beforeChunkAssets.call();
+          // 生成对应的Assets
+					this.createChunkAssets(err => {
+						this.logger.timeEnd("create chunk assets");
+						if (err) {
+							return callback(err);
+						}
+						cont(); // this.hooks.processAssets.callAsync(...)
+					});
+				} else {
+					this.logger.timeEnd("create chunk assets");
+					cont();
+				}
+    });
+}
+
 ```
+
+每个 chunk 的生成就是找到需要包含的 modules。
+
+参考新版本的**源码流程**：
+
+1. webpack 先将 entry 中对应的 module 都生成一个新的 chunk
+2. 遍历 module 的依赖列表，将依赖的 module 也加入到 chunk 中
+3. 如果一个依赖 module 是动态引入的模块，那么就会根据这个 module 创建一个新的 chunk，继续遍历依赖
+4. 重复上面的过程，直至得到所有的 chunks
+
+
 
 ##### 生成最终 assets
 
