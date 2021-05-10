@@ -85,6 +85,7 @@ function  a(module, exports) {
     var chunk1=1;
     exports.chunk1=chunk1;
 }
+
 a(module, exports,__webpack_require__);
 ```
 
@@ -132,9 +133,11 @@ console.log(chunk1);
     // Load entry module and return exports
     return __webpack_require__(0);
 })([function (module, exports, __webpack_require__) {
+  	/** main.js */
     var chunk1=__webpack_require__(1);
     console.log(chunk1);
 }, function (module, exports) {
+  	/** chunk1.js */
     var chunk1 = 1;
     exports.chunk1 = chunk1;
 }]);
@@ -169,7 +172,7 @@ module.exports = {
 };
 ```
 
-main mian1中都require了chunk1,所以chunk1会被打包到common。
+main mian1中都require了chunk1，所以chunk1会被打包到common。
 
 ```js
 (function (modules) { // webpackBootstrap
@@ -177,7 +180,7 @@ main mian1中都require了chunk1,所以chunk1会被打包到common。
     var parentJsonpFunction = window["webpackJsonp"]; // undefined
     window["webpackJsonp"] = function webpackJsonpCallback(chunkIds, moreModules) {
         // moreModules 为独立 chunk 代码，chunkIds 标记独立 chunk 唯一性避免按需加载时重复加载
-      	// 以main.js中代码为例，chunkIds为[0],moreModules为
+      	// 以main.js中代码为例，chunkIds为[0]，moreModules为
         // [function(module, exports, __webpack_require__) {
         //    var chunk1=__webpack_require__(1);
         //    console.log(chunk1);
@@ -193,12 +196,12 @@ main mian1中都require了chunk1,所以chunk1会被打包到common。
             // 赋值为0表明chunk已经loaded
           	installedChunks[chunkId] = 0;
         }
-      	// 将 moreModules 复制到 modules 上
+      	// 将 moreModules 覆盖到 modules 上，modules就是作为立即执行函数传参传入的modules
         for (moduleId in moreModules) {
           	// modules[0]会被覆盖
             modules[moduleId] = moreModules[moduleId];
         }
-      	// 初次运行到这里的时候 parentJsonpFunction 是 undefined
+      	// 初次运行到这里的时候 parentJsonpFunction 为 undefined
         if (parentJsonpFunction) parentJsonpFunction(chunkIds, moreModules);
       	// 初次运行到这里时callbacks=[]
         while (callbacks.length)
@@ -219,7 +222,6 @@ main mian1中都require了chunk1,所以chunk1会被打包到common。
         2: 0
     };
     // The require function
-    // 按需加载
     function __webpack_require__(moduleId) {
         // Check if module is in cache
         if (installedModules[moduleId])
@@ -239,21 +241,24 @@ main mian1中都require了chunk1,所以chunk1会被打包到common。
     }
     // This file contains only the entry chunk.
     // The chunk loading function for additional chunks
+    // 按需加载
     __webpack_require__.e = function requireEnsure(chunkId, callback) {
-        // "0" is the signal for "already loaded"
+        // "0" 标志着 "已经加载"
         if (installedChunks[chunkId] === 0)
             return callback.call(null, __webpack_require__);
-        // an array means "currently loading".
+        // 数字意味着 "当前加载".
         if (installedChunks[chunkId] !== undefined) {
             installedChunks[chunkId].push(callback);
         } else {
             // start chunk loading
+          	// 利用script加载chunk模块
             installedChunks[chunkId] = [callback];
             var head = document.getElementsByTagName('head')[0];
             var script = document.createElement('script');
             script.type = 'text/javascript';
             script.charset = 'utf-8';
             script.async = true;
+          	// 从这里可以看出 __webpack_require__.p 就是加载模块的URL前缀
             script.src = __webpack_require__.p + "" + chunkId + "." + ({ "0": "main", "1": "main1" }[chunkId] || chunkId) + ".js";
             head.appendChild(script);
         }
@@ -265,7 +270,7 @@ main mian1中都require了chunk1,所以chunk1会被打包到common。
     // __webpack_public_path__
     __webpack_require__.p = "";
 })([, function (module, exports) {
-
+		// __webpack_require__的时候把chunk1存到了installedModules的 index=1 的位置上
     var chunk1 = 1;
     exports.chunk1 = chunk1;
 
@@ -276,7 +281,6 @@ main mian1中都require了chunk1,所以chunk1会被打包到common。
 
 ```js
 webpackJsonp([0],[function(module, exports, __webpack_require__) {
-
     var chunk1=__webpack_require__(1);
     console.log(chunk1);
  }]);
@@ -291,4 +295,98 @@ webpackJsonp([1],[function(module, exports, __webpack_require__) {
 }]);
 ```
 
-多了webpackJsonp函数，立即执行的匿名函数没有立即调用__webpack_require__(0)。
+多了webpackJsonp函数，立即执行的匿名函数没有立即调用__webpack_require__(0)。common.js 的 modules 的`index: 0` 会添加进 main 和 main1 的 moreModules参数。
+
+修改一下如下：main，main1都分别 require chunk1，chunk2，然后将chunk1打包到公共模块（`minChunks: 3`，chunk2不会被打包到公共模块）。
+
+```js
+var CommonsChunkPlugin = require("webpack/lib/optimize/CommonsChunkPlugin");
+module.exports = {
+    entry: {
+      main: './main.js',
+      main1: './main1.js',
+      chunk1: ["./chunk1"] // 单入口数组写法将多个依赖合并到一个chunk中
+    },
+    output: {
+      path: __dirname + '/dist2',
+      filename: '[name].js'
+    },
+    plugins: [
+      new CommonsChunkPlugin({
+        name: ["chunk1"], // 已经存在的chunk（一般指入口文件）对应的name
+        filename: "common.js",
+        minChunks: 3,
+      })
+    ]
+};
+```
+
+**main.js**
+
+```js
+// 调用webpackJsonp，传入的参数[1]为 chunkIds , 第二个参数为 moreModules
+webpackJsonp([1], [function (module, exports, __webpack_require__) {
+		 var chunk1 = __webpack_require__(1);
+    var chunk2 = __webpack_require__(2);
+    exports.a = 1;
+    console.log(chunk1);
+}, , function (module, exports) {
+    var chunk2 = 1;
+    exports.chunk2 = chunk2;
+}
+]);
+```
+
+**main1.js**
+
+```js
+webpackJsonp([2], [function (module, exports, __webpack_require__) {
+    var chunk1 = __webpack_require__(1);
+    var chunk2 = __webpack_require__(2);
+    exports.a = 1;
+    console.log(chunk1);
+}, , function (module, exports) {
+    var chunk2 = 1;
+    exports.chunk2 = chunk2;
+}
+]);
+```
+
+**common.js**
+
+```js
+/** common.js 传入的 modules */
+[function (module, exports, __webpack_require__) {
+    module.exports = __webpack_require__(1);
+}, function (module, exports) {
+    var chunk1 = 1;
+    exports.chunk1 = chunk1;
+}]
+```
+
+```js
+// main.js 到webpackJsonp里
+var moduleId, chunkId, i = 0, callbacks = [];
+for (; i < chunkIds.length; i++) {
+  chunkId = chunkIds[i]; // 1
+  // false, 赋值为0后还是false
+  if (installedChunks[chunkId])
+    callbacks.push.apply(callbacks, installedChunks[chunkId]);
+  installedChunks[chunkId] = 0;
+}
+// 三个模块
+for (moduleId in moreModules) {
+  // moduleId: 0,1,2
+  // moreModules[1]为空模块，自执行函数的参数(公共模块)会被覆盖，但是参数中的相应模块已经loaded并且缓存
+  modules[moduleId] = moreModules[moduleId];
+}
+if (parentJsonpFunction) parentJsonpFunction(chunkIds, moreModules);
+while (callbacks.length)
+  callbacks.shift().call(null, __webpack_require__);
+if (moreModules[0]) {
+  // installedModules[0]会重新load,但是load的是moreModules[0]，因为modules[0]已经被覆盖，moreModules[0]依赖于 modules[1]、modules[2]，modules[1]已经loaded
+  installedModules[0] = 0; // __webpack_require__ 里面会重新赋值 installedModules[0]
+  return __webpack_require__(0);
+}
+```
+
