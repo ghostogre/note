@@ -363,3 +363,407 @@ var getDictionaryKey = function (inst) {
 };
 ```
 
+## 事件分发
+
+事件已经委托注册到 `document` 上了，那么事件触发的时候，肯定需要一个事件分发的过程，流程也很简单，既然事件存储在 `listenrBank` 中，那么只需要找到对应的事件类型，然后执行事件回调就 ok 了。
+
+> 注意: 由于元素本身并没有注册任何事件，而是委托到了 document 上，所以这个将被触发的事件是 React 自带的合成事件，而非浏览器原生事件
+
+首先找到事件触发的`DOM`和`React Component`：
+
+**getEventTarget 源码**
+
+```js
+// 源码看这里: https://github.com/facebook/react/blob/master/packages/react-dom/src/events/ReactDOMEventListener.js#L419
+const nativeEventTarget = getEventTarget(nativeEvent)
+let targetInst = getClosestInstanceFromNode(nativeEventTarget)
+```
+
+```js
+function getEventTarget(nativeEvent) {
+  let target = nativeEvent.target || nativeEvent.srcElement || window
+
+  if (target.correspondingUseElement) {
+    target = target.correspondingUseElement
+  }
+
+  return target.nodeType === TEXT_NODE ? target.parentNode : target
+}
+```
+
+`nativeEventTarget` 对象上挂在了一个以 `__reactInternalInstance` 开头的属性，这个属性就是 `internalInstanceKey` ，其值就是当前 React 实例对应的 React Component。
+
+继续看源码：`dispatchEventForPluginEventSystem()`：
+
+```js
+function dispatchEventForPluginEventSystem(
+  topLevelType: DOMTopLevelEventType,
+  eventSystemFlags: EventSystemFlags,
+  nativeEvent: AnyNativeEvent,
+  targetInst: null | Fiber
+): void {
+  const bookKeeping = getTopLevelCallbackBookKeeping(
+    topLevelType,
+    nativeEvent,
+    targetInst,
+    eventSystemFlags
+  )
+
+  try {
+    // Event queue being processed in the same cycle allows
+    // `preventDefault`.
+    batchedEventUpdates(handleTopLevel, bookKeeping)
+  } finally {
+    releaseTopLevelCallbackBookKeeping(bookKeeping)
+  }
+}
+```
+
+`batchedEventUpdates()`批量更新，它的工作是把当前触发的事件放到了批处理队列中。**handleTopLevel 是事件分发的核心所在**
+
+```js
+function handleTopLevel(bookKeeping: BookKeepingInstance) {
+  let targetInst = bookKeeping.targetInst
+
+  // Loop through the hierarchy, in case there's any nested components.
+  // It's important that we build the array of ancestors before calling any
+  // event handlers, because event handlers can modify the DOM, leading to
+  // inconsistencies with ReactMount's node cache. See #1105.
+  let ancestor = targetInst
+  do {
+    if (!ancestor) {
+      const ancestors = bookKeeping.ancestors
+      ;((ancestors: any): Array<Fiber | null>).push(ancestor)
+      break
+    }
+    const root = findRootContainerNode(ancestor)
+    if (!root) {
+      break
+    }
+    const tag = ancestor.tag
+    if (tag === HostComponent || tag === HostText) {
+      bookKeeping.ancestors.push(ancestor)
+    }
+    ancestor = getClosestInstanceFromNode(root)
+  } while (ancestor)
+}
+```
+
+英文注释讲的很清楚，主要就是**事件回调可能会改变 DOM 结构，所以要先遍历层次结构，以防存在任何嵌套的组件，然后缓存起来**。
+
+然后继续这个方法
+
+```js
+for (let i = 0; i < bookKeeping.ancestors.length; i++) {
+  targetInst = bookKeeping.ancestors[i]
+  // getEventTarget上边有讲到
+  const eventTarget = getEventTarget(bookKeeping.nativeEvent)
+  const topLevelType = ((bookKeeping.topLevelType: any): DOMTopLevelEventType)
+  const nativeEvent = ((bookKeeping.nativeEvent: any): AnyNativeEvent)
+
+  runExtractedPluginEventsInBatch(
+    topLevelType,
+    targetInst,
+    nativeEvent,
+    eventTarget,
+    bookKeeping.eventSystemFlags
+  )
+}
+```
+
+一个 for 循环来遍历这个 React Component 及其所有的父组件，然后执行`runExtractedPluginEventsInBatch()`方法
+
+## 事件执行
+
+上边讲到的 `runExtractedPluginEventsInBatch()`方法就是事件执行的入口了，通过源码，我们可以知道，它干了两件事
+
+- 构造合成事件
+- 批处理构造出的合成事件
+
+```js
+export function runExtractedPluginEventsInBatch(
+  topLevelType: TopLevelType,
+  targetInst: null | Fiber,
+  nativeEvent: AnyNativeEvent,
+  nativeEventTarget: EventTarget,
+  eventSystemFlags: EventSystemFlags
+) {
+  // step1 : 构造合成事件
+  const events = extractPluginEvents(
+    topLevelType,
+    targetInst,
+    nativeEvent,
+    nativeEventTarget,
+    eventSystemFlags
+  )
+
+  // step2 : 批处理
+  runEventsInBatch(events)
+}
+```
+
+### 构造合成事件
+
+相关的代码 `extractPluginEvents()` 和 `runEventsInBatch()`
+
+```js
+function extractPluginEvents(
+  topLevelType: TopLevelType,
+  targetInst: null | Fiber,
+  nativeEvent: AnyNativeEvent,
+  nativeEventTarget: EventTarget,
+  eventSystemFlags: EventSystemFlags
+): Array<ReactSyntheticEvent> | ReactSyntheticEvent | null {
+  let events = null
+  for (let i = 0; i < plugins.length; i++) {
+    // Not every plugin in the ordering may be loaded at runtime.
+    const possiblePlugin: PluginModule<AnyNativeEvent> = plugins[i]
+    if (possiblePlugin) {
+      const extractedEvents = possiblePlugin.extractEvents(
+        topLevelType,
+        targetInst,
+        nativeEvent,
+        nativeEventTarget,
+        eventSystemFlags
+      )
+      if (extractedEvents) {
+        events = accumulateInto(events, extractedEvents)
+      }
+    }
+  }
+  return events
+}
+```
+
+首先会去遍历 `plugins`，相关代码在: [plugins 源码](https://github.com/facebook/react/blob/master/packages/legacy-events/EventPluginRegistry.js#L163)，这个 plugins 就是所有事件合成 plugins 的集合数组，这些 plugins 是在 `EventPluginHub` 初始化时候注入的：
+
+```js
+// 源码地址 : https://github.com/facebook/react/blob/master/packages/legacy-events/EventPluginHub.js#L80
+
+export const injection = {
+  injectEventPluginOrder,
+  injectEventPluginsByName
+}
+```
+
+```js
+// 源码地址 : https://github.com/facebook/react/blob/master/packages/react-dom/src/client/ReactDOMClientInjection.js#L26
+EventPluginHubInjection.injectEventPluginOrder(DOMEventPluginOrder)
+
+EventPluginHubInjection.injectEventPluginsByName({
+  SimpleEventPlugin: SimpleEventPlugin,
+  EnterLeaveEventPlugin: EnterLeaveEventPlugin,
+  ChangeEventPlugin: ChangeEventPlugin,
+  SelectEventPlugin: SelectEventPlugin,
+  BeforeInputEventPlugin: BeforeInputEventPlugin
+})
+```
+
+**extractEvents**
+
+```js
+const extractedEvents = possiblePlugin.extractEvents(
+  topLevelType,
+  targetInst,
+  nativeEvent,
+  nativeEventTarget,
+  eventSystemFlags
+)
+if (extractedEvents) {
+  events = accumulateInto(events, extractedEvents)
+}
+```
+
+因为 **const possiblePlugin: PluginModule = plugins[i]**, 类型是 PluginModule，我们可以去 👉[SimpleEventPlugin 源码](https://github.com/facebook/react/blob/master/packages/react-dom/src/events/SimpleEventPlugin.js#L249)去看一下 `extractEvents` 到底干了啥
+
+```js
+extractEvents: function() {
+  const dispatchConfig = topLevelEventsToDispatchConfig[topLevelType]
+  if (!dispatchConfig) {
+    return null
+  }
+  //...
+}
+```
+
+首先，看下 `topLevelEventsToDispatchConfig` 这个对象中有没有 topLevelType 这个属性，只要有，那么说明当前事件可以使用 `SimpleEventPlugin` 构造合成事件
+
+函数里边定义了 `EventConstructor`，然后通过 `switch...case` 语句进行赋值
+
+```js
+extractEvents: function() {
+  //...
+  let EventConstructor
+  switch (topLevelType) {
+    // ...
+    case DOMTopLevelEventTypes.TOP_POINTER_UP:
+      EventConstructor = SyntheticPointerEvent
+      break
+    default:
+      EventConstructor = SyntheticEvent
+      break
+  }
+}
+```
+
+总之就是赋值给 `EventConstructor`，如果你想更加了解`SyntheticEvent`，[请点击这里](https://github.com/facebook/react/blob/master/packages/legacy-events/SyntheticEvent.js)
+
+设置好了`EventConstructor`之后，这个方法继续执行
+
+```js
+extractEvents: function() {
+  //...
+  const event = EventConstructor.getPooled(
+    dispatchConfig,
+    targetInst,
+    nativeEvent,
+    nativeEventTarget
+  )
+  accumulateTwoPhaseDispatches(event)
+  return event
+}
+```
+
+这一段代码的意思就是，从 event 对象池中取出合成事件，这里的 `getPooled()` 方法其实在在 `SyntheticEvent` 初始化的时候就被设置好了，我们来看一下代码
+
+```js
+function addEventPoolingTo(EventConstructor) {
+  EventConstructor.eventPool = []
+  // 就是这里设置了getPooled
+  EventConstructor.getPooled = getPooledEvent
+  EventConstructor.release = releasePooledEvent
+}
+
+SyntheticEvent.extend = function(Interface) {
+  //...
+  addEventPoolingTo(Class)
+
+  return Class
+}
+
+addEventPoolingTo(SyntheticEvent)
+```
+
+`getPooled` 就是 `getPooledEvent`，那我们去看看`getPooledEvent`做了啥玩意
+
+```js
+function getPooledEvent(dispatchConfig, targetInst, nativeEvent, nativeInst) {
+  const EventConstructor = this
+  if (EventConstructor.eventPool.length) {
+    const instance = EventConstructor.eventPool.pop()
+    EventConstructor.call(
+      instance,
+      dispatchConfig,
+      targetInst,
+      nativeEvent,
+      nativeInst
+    )
+    return instance
+  }
+  return new EventConstructor(
+    dispatchConfig,
+    targetInst,
+    nativeEvent,
+    nativeInst
+  )
+}
+```
+
+首先呢，会先去对象池中，看一下 length 是否为 0，如果是第一次事件触发，那不好意思，你需要 `new EventConstructor` 了，如果后续再次触发事件的时候，直接从对象池中取，也就是直接 `instance = EventConstructor.eventPool.pop()` 出来的完事了
+
+### 批处理
+
+批处理主要是通过 `runEventQueueInBatch(events)` 进行操作，我们来看看源码: 👉 [runEventQueueInBatch 源码](https://github.com/facebook/react/blob/master/packages/legacy-events/EventBatching.js#L42)
+
+```js
+export function runEventsInBatch(
+  events: Array<ReactSyntheticEvent> | ReactSyntheticEvent | null
+) {
+  if (events !== null) {
+    eventQueue = accumulateInto(eventQueue, events)
+  }
+
+  // Set `eventQueue` to null before processing it so that we can tell if more
+  // events get enqueued while processing.
+  const processingEventQueue = eventQueue
+  eventQueue = null
+
+  if (!processingEventQueue) {
+    return
+  }
+
+  forEachAccumulated(processingEventQueue, executeDispatchesAndReleaseTopLevel)
+  invariant(
+    !eventQueue,
+    'processEventQueue(): Additional events were enqueued while processing ' +
+      'an event queue. Support for this has not yet been implemented.'
+  )
+  // This would be a good time to rethrow if any of the event handlers threw.
+  rethrowCaughtError()
+}
+```
+
+这个方法首先会将当前需要处理的 events 事件，与之前没有处理完毕的队列调用 `accumulateInto` 方法按照顺序进行合并，组合成一个新的队列
+
+如果`processingEventQueue`这个为空，gg，没有处理的事件，退出，否则调用 `forEachAccumulated()`，源码看这里: [forEachAccumulated 源码](https://github.com/facebook/react/blob/master/packages/legacy-events/forEachAccumulated.js#L19)
+
+```js
+function forEachAccumulated<T>(
+  arr: ?(Array<T> | T),
+  cb: (elem: T) => void,
+  scope: ?any
+) {
+  if (Array.isArray(arr)) {
+    arr.forEach(cb, scope)
+  } else if (arr) {
+    cb.call(scope, arr)
+  }
+}
+```
+
+这个方法就是先看下事件队列 `processingEventQueue` 是不是个数组，如果是数组，说明队列中不止一个事件，则遍历队列，调用 `executeDispatchesAndReleaseTopLevel`，否则说明队列中只有一个事件，则无需遍历直接调用即可
+
+📢 [executeDispatchesAndReleaseTopLevel 源码](https://github.com/facebook/react/blob/master/packages/legacy-events/EventBatching.js#L38)
+
+```js
+const executeDispatchesAndRelease = function(event: ReactSyntheticEvent) {
+  if (event) {
+    executeDispatchesInOrder(event)
+
+    if (!event.isPersistent()) {
+      event.constructor.release(event)
+    }
+  }
+}
+const executeDispatchesAndReleaseTopLevel = function(e) {
+  return executeDispatchesAndRelease(e)
+}
+```
+
+```js
+export function executeDispatchesInOrder(event) {
+  const dispatchListeners = event._dispatchListeners
+  const dispatchInstances = event._dispatchInstances
+  if (__DEV__) {
+    validateEventDispatches(event)
+  }
+  if (Array.isArray(dispatchListeners)) {
+    for (let i = 0; i < dispatchListeners.length; i++) {
+      if (event.isPropagationStopped()) {
+        break
+      }
+      // Listeners and Instances are two parallel arrays that are always in sync.
+      executeDispatch(event, dispatchListeners[i], dispatchInstances[i])
+    }
+  } else if (dispatchListeners) {
+    executeDispatch(event, dispatchListeners, dispatchInstances)
+  }
+  event._dispatchListeners = null
+  event._dispatchInstances = null
+}
+```
+
+首先对拿到的事件上挂载的 `dispatchListeners`，就是所有注册事件回调函数的集合，遍历这个集合，如果`event.isPropagationStopped() = ture`，ok，break 就好了，因为说明在此之前触发的事件已经调用 `event.stopPropagation()`，isPropagationStopped 的值被置为 true，当前事件以及后面的事件作为父级事件就不应该再被执行了
+
+这里当 event.isPropagationStopped()为 true 时，中断合成事件的向上遍历执行，也就起到了和原生事件调用 stopPropagation 相同的效果 如果循环没有被中断，则继续执行 `executeDispatch` 方法，至于这个方法，源码地址献上: [executeDispatch 源码地址](https://github.com/facebook/react/blob/master/packages/legacy-events/EventPluginUtils.js#L66)
+
