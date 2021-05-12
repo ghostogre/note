@@ -290,4 +290,5 @@
 
     - 方法一，flex 父元素外层再套一层`width:auto`的块元素， padding-right 移到这个父元素上。
     - 方法二，在子元素的末尾加一个透明背景色的1px元素，我们可以使用伪元素。比较方便不需要改动DOM结构。
-
+    
+28. 使用 `z-index` 的时候需要保证元素定位是`relative`，`absolute`或者`fixed`。
