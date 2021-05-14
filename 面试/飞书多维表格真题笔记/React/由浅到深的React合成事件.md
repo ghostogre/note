@@ -148,6 +148,7 @@ onClick={() => {
 > react 15.6.1 的源码
 
 ```js
+/** mountComponent */
 mountComponent: function(transaction, hostParent, hostContainerInfo, context) {
   // ...
   var props = this._currentElement.props;
@@ -166,7 +167,7 @@ _updateDOMProperties: function (lastProps, nextProps, transaction) {
       // lastProp是更新前的prop的值，对于style特殊处理
       var lastProp = propKey === STYLE ? this._previousStyleCopy : lastProps != null ? lastProps[propKey] : undefined;
       if (!nextProps.hasOwnProperty(propKey) || nextProp === lastProp || nextProp == null && lastProp == null) {
-        // 如果propKey不存在于nextProps，或者没有改变props，或者nextProp和lastProp为null，跳过后续更新步骤
+        // 如果propKey来自于nextProps的继承链上而不是nextProps本身（这里防止了获取到的是继承链上的属性），或者没有改变props，或者nextProp和lastProp为null，跳过后续更新步骤
         continue;
       }
       if (propKey === STYLE) {
@@ -193,9 +194,11 @@ _updateDOMProperties: function (lastProps, nextProps, transaction) {
 ```js
 function enqueuePutListener(inst, registrationName, listener, transaction) {
   if (transaction instanceof ReactServerRenderingTransaction) {
+    /** 服务器渲染直接返回 */
     return
   }
   var containerInfo = inst._hostContainerInfo
+  /* 判断是否是 documentFragment */
   var isDocumentFragment =
     containerInfo._node && containerInfo._node.nodeType === DOC_FRAGMENT_TYPE
   // 找到document
@@ -203,6 +206,7 @@ function enqueuePutListener(inst, registrationName, listener, transaction) {
     ? containerInfo._node
     : containerInfo._ownerDocument
   // 注册事件，将事件注册到document上
+  // registrationName 就是 propKey
   listenTo(registrationName, doc)
   // 存储事件,放入事务队列中
   transaction.getReactMountReady().enqueue(putListener, {
@@ -224,6 +228,7 @@ export function listenTo(
   mountAt: Document | Element | Node
 ): void {
   const listeningSet = getListeningSetForElement(mountAt)
+  // dependencies 是数组
   const dependencies = registrationNameDependencies[registrationName]
 
   for (let i = 0; i < dependencies.length; i++) {
@@ -375,7 +380,9 @@ var getDictionaryKey = function (inst) {
 
 ```js
 // 源码看这里: https://github.com/facebook/react/blob/master/packages/react-dom/src/events/ReactDOMEventListener.js#L419
+// 获取事件源对象
 const nativeEventTarget = getEventTarget(nativeEvent)
+// getClosestInstanceFromNode
 let targetInst = getClosestInstanceFromNode(nativeEventTarget)
 ```
 
@@ -383,15 +390,27 @@ let targetInst = getClosestInstanceFromNode(nativeEventTarget)
 function getEventTarget(nativeEvent) {
   let target = nativeEvent.target || nativeEvent.srcElement || window
 
+  // Normalize SVG <use> element events
+  // 处理 svg 的 use 元素
   if (target.correspondingUseElement) {
     target = target.correspondingUseElement
   }
-
+	// 如果是文本节点，返回他的父节点
   return target.nodeType === TEXT_NODE ? target.parentNode : target
 }
 ```
 
-`nativeEventTarget` 对象上挂在了一个以 `__reactInternalInstance` 开头的属性，这个属性就是 `internalInstanceKey` ，其值就是当前 React 实例对应的 React Component。
+`getClosestInstanceFromNode`函数中不得不提的就是查找事件源对象的Fiber节点是如何实现的。在React开始执行的时候，会注册两个变量。
+
+```js
+var randomKey = Math.random().toString(36).slice(2);
+var internalInstanceKey = '__reactInternalInstance$' + randomKey;
+var internalEventHandlersKey = '__reactEventHandlers$' + randomKey;
+```
+
+而在React的commit阶段的时候，会在元素对象上添加了两个属性，分别是`__reactInternalInstance$<id>`和`__reactEventHandlers$<id>`两个属性。
+
+`nativeEventTarget` 对象上挂载一个以 `__reactInternalInstance` 开头的属性，这个属性就是 `internalInstanceKey` ，其值就是当前 React 实例对应的 React Component。
 
 继续看源码：`dispatchEventForPluginEventSystem()`：
 
@@ -402,6 +421,7 @@ function dispatchEventForPluginEventSystem(
   nativeEvent: AnyNativeEvent,
   targetInst: null | Fiber
 ): void {
+  // 组装了一个bookKeeping变量（包含事件类型，顶级元素document，事件源对象Fiber节点）
   const bookKeeping = getTopLevelCallbackBookKeeping(
     topLevelType,
     nativeEvent,
@@ -422,6 +442,7 @@ function dispatchEventForPluginEventSystem(
 `batchedEventUpdates()`批量更新，它的工作是把当前触发的事件放到了批处理队列中。**handleTopLevel 是事件分发的核心所在**
 
 ```js
+// 主要作用就是在触发任何事件处理方法前先将祖先节点保存起来，防止后续的事件处理方法修改了DOM节点后导致与缓存的矛盾
 function handleTopLevel(bookKeeping: BookKeepingInstance) {
   let targetInst = bookKeeping.targetInst
 
@@ -429,13 +450,17 @@ function handleTopLevel(bookKeeping: BookKeepingInstance) {
   // It's important that we build the array of ancestors before calling any
   // event handlers, because event handlers can modify the DOM, leading to
   // inconsistencies with ReactMount's node cache. See #1105.
+  // 循环遍历组件树，获取祖先节点，在触发任何事件处理方法之前先获取祖先节点非常重要，
+  // 因为事件处理方法很可能会对DOM进行修改，导致跟React缓存的节点不一致
   let ancestor = targetInst
   do {
     if (!ancestor) {
       const ancestors = bookKeeping.ancestors
+      // ((ancestors as any) as Array<Fiber | null>).push(ancestor)
       ;((ancestors: any): Array<Fiber | null>).push(ancestor)
       break
     }
+    // 通过Fiber的return指针一直向上查找根节点，直到reutrn为null
     const root = findRootContainerNode(ancestor)
     if (!root) {
       break
