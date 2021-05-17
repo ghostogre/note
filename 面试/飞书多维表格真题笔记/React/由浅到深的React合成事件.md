@@ -455,26 +455,32 @@ function handleTopLevel(bookKeeping: BookKeepingInstance) {
   let ancestor = targetInst
   do {
     if (!ancestor) {
+      // 没有祖先节点说明已经到达了顶部
       const ancestors = bookKeeping.ancestors
+      // 在末尾添加一个null表示已经到达了顶点
       // ((ancestors as any) as Array<Fiber | null>).push(ancestor)
       ;((ancestors: any): Array<Fiber | null>).push(ancestor)
       break
     }
-    // 通过Fiber的return指针一直向上查找根节点，直到reutrn为null
+    // 通过Fiber的 return 指针一直向上查找根节点，直到 reutrn 为 null
     const root = findRootContainerNode(ancestor)
     if (!root) {
       break
     }
     const tag = ancestor.tag
+    // 将祖先节点的 hostComponent 和 HostText 依次加入到 ancestors 数组里去
     if (tag === HostComponent || tag === HostText) {
       bookKeeping.ancestors.push(ancestor)
     }
+    // 根据一个dom节点，返回最近的 hostComponent 或者 hostText fiber 祖先
     ancestor = getClosestInstanceFromNode(root)
   } while (ancestor)
 }
 ```
 
 英文注释讲的很清楚，主要就是**事件回调可能会改变 DOM 结构，所以要先遍历层次结构，以防存在任何嵌套的组件，然后缓存起来**。
+
+> 因为不是所有的DOM节点都有Fiber实例，所以有一些特殊情况无法直接通过 `Fiber return`指针直接寻找到根节点，所以当 `reutrn`为 `null`的时候，React会继续通过原生的 `node.parentNode`继续向上寻找，直到找到有 `Fiber`实例的节点，然后重复上述步骤，直到找到根节点
 
 然后继续这个方法
 
