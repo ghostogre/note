@@ -162,11 +162,13 @@ mountComponent: function(transaction, hostParent, hostContainerInfo, context) {
 _updateDOMProperties: function (lastProps, nextProps, transaction) {
   	// 如同函数名称，我们可以很清楚的知道这是更新DOM的props
     // ...
+  	// 遍历nextProps
     for (propKey in nextProps) {
       var nextProp = nextProps[propKey];
       // lastProp是更新前的prop的值，对于style特殊处理
       var lastProp = propKey === STYLE ? this._previousStyleCopy : lastProps != null ? lastProps[propKey] : undefined;
       if (!nextProps.hasOwnProperty(propKey) || nextProp === lastProp || nextProp == null && lastProp == null) {
+        // PS：x || y && z 等价于 x || ( y && z )，因为前面 || 的条件为 true 会终止后面的判断。
         // 如果propKey来自于nextProps的继承链上而不是nextProps本身（这里防止了获取到的是继承链上的属性），或者没有改变props，或者nextProp和lastProp为null，跳过后续更新步骤
         continue;
       }
@@ -174,13 +176,13 @@ _updateDOMProperties: function (lastProps, nextProps, transaction) {
         // ...
       } else if (registrationNameModules.hasOwnProperty(propKey)) {
         // 如果是props这个对象直接声明的属性，而不是从原型链中继承而来的，则处理它
-        // 对于mountComponent，lastProp为null。
+        // 对于mountComponent，lastProp为null
         // updateComponent二者都不为null
         // unmountComponent则nextProp为null
-        if (nextProp) {
+        if (nextProp) { // nextProp 不为 null，也就是说不是卸载删除
           // mountComponent和updateComponent中，enqueuePutListener注册事件
           enqueuePutListener(this, propKey, nextProp, transaction);
-        } else if (lastProp) {
+        } else if (lastProp) { // 没有nextProp，卸载删除
           // unmountComponent中，删除注册的listener，防止内存泄漏
           deleteListener(this, propKey);
         }
@@ -227,12 +229,13 @@ export function listenTo(
   registrationName: string,
   mountAt: Document | Element | Node
 ): void {
+  // 顾名思义，就是从元素上获取到监听事件和属性的集合
   const listeningSet = getListeningSetForElement(mountAt)
-  // dependencies 是数组
+  // dependencies 是对应事件的依赖事件，比如onChange会依赖TOP_INPUT、TOP_FOCUS等一系列事件
   const dependencies = registrationNameDependencies[registrationName]
 
   for (let i = 0; i < dependencies.length; i++) {
-    const dependency = dependencies[i]
+    const dependency = dependencies[i] // 往下看知道是topLevelType的数组
     // 调用该方法进行注册
     listenToTopLevel(dependency, mountAt, listeningSet)
   }
@@ -252,17 +255,21 @@ export function listenToTopLevel(
       //...
       case TOP_CANCEL:
       case TOP_CLOSE:
+      	// getRawEventName会返回真实的事件名称，比如onChange => onchange
         if (isEventSupported(getRawEventName(topLevelType))) {
           trapCapturedEvent(topLevelType, mountAt) // 捕获阶段
         }
         break
       default:
+      	// 默认将除了媒体事件之外的所有事件都注册冒泡事件
+        // 因为媒体事件不会冒泡，所以注册冒泡事件毫无意义
         const isMediaEvent = mediaEventTypes.indexOf(topLevelType) !== -1
         if (!isMediaEvent) {
           trapBubbledEvent(topLevelType, mountAt) // 冒泡阶段
         }
         break
     }
+		// 表示目标容器已经注册了该事件
     listeningSet.add(topLevelType)
   }
 }
@@ -299,6 +306,7 @@ function trapEventForPluginEventSystem(
   let listener
   switch (getEventPriority(topLevelType)) {
   }
+	// 获取真实的事件名称
   const rawEventName = getRawEventName(topLevelType)
   if (capture) {
     addEventCaptureListener(element, rawEventName, listener)
@@ -422,6 +430,7 @@ function dispatchEventForPluginEventSystem(
   targetInst: null | Fiber
 ): void {
   // 组装了一个bookKeeping变量（包含事件类型，顶级元素document，事件源对象Fiber节点）
+  //  bookKeeping对象除了我们现有的topLevelType、nativeEvent、targetInst以外，多了一个ancestor属性，为一个空数组，它用来存储targetInst的祖先节点
   const bookKeeping = getTopLevelCallbackBookKeeping(
     topLevelType,
     nativeEvent,
@@ -432,8 +441,10 @@ function dispatchEventForPluginEventSystem(
   try {
     // Event queue being processed in the same cycle allows
     // `preventDefault`.
+    // 这个方法内部就是调用了handleTopLevel(bookKeeping)，只不过里面通过一个isBatching标志位来标志是否当前正在批量处理，如果为true，后续触发的需要等待前面的处理完再执行。
     batchedEventUpdates(handleTopLevel, bookKeeping)
   } finally {
+    // 将bookKeeping对象的所有属性置空，可以简单的理解为用完之后就把它“释放”掉了。
     releaseTopLevelCallbackBookKeeping(bookKeeping)
   }
 }
