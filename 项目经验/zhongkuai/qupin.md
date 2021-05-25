@@ -4,7 +4,7 @@
 
 3. 组件内部触底钩子和页面触底钩子会合并了，要注意组件内的钩子不要重复使用。
 
-4. H5 项目不支持Taro的`createIntersectionObserver`和`Taro.nextTick`API，需要使用h5自身的API。Taro的`IntersectionObserver`相关API本身就放在`WXML`下面。
+4. H5 项目不支持Taro的`createIntersectionObserver`和`Taro.nextTick`API，需要使用h5自身的API。Taro文档里的`IntersectionObserver`相关API本身就放在`WXML`下面。
 
 5. 类似拼多多的用户中奖每三秒显示一个用户：
 
