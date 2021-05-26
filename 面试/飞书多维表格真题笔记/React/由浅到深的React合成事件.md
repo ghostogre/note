@@ -2,6 +2,56 @@
 
 > 文章是2019年11月的，和现在版本可能不同
 
+## 后续需要的几个功能函数
+
+```js
+// 作用：如果只是单个next，则直接返回，如果有数组，返回合成的数组，里面有个
+// current.push.apply(current, next)可以学习一下，这样组合数组比concat效率更高
+
+// 栗子：input accumulateInto([],[]）
+
+function accumulateInto(current, next) {
+  if (current == null) {
+    return next;
+  }
+
+  // Both are not empty. Warning: Never call x.concat(y) when you are not
+  // certain that x is an Array (x could be a string with concat method).
+  if (Array.isArray(current)) {
+    if (Array.isArray(next)) {
+      current.push.apply(current, next);
+      return current;
+    }
+    current.push(next);
+    return current;
+  }
+
+  if (Array.isArray(next)) {
+    // A bit too dangerous to mutate `next`.
+    return [current].concat(next);
+  }
+
+  return [current, next];
+}
+
+// 这个其实就是用来执行函数的，当arr时数组的时候，arr里的每一个项都作为回调函数cb的参数执行;
+// 如果不是数组，直接执行回调函数cb,参数为arr
+// 例如：
+// arr为数组：forEachAccumulated（[1,2,3], (item) => {console.log(item), this}）
+// 此时会打印出 1，2，3
+// arr不为数组，forEachAccumulated（1, (item) => {console.log(item), this}）
+// 此时会打印出 1
+function forEachAccumulated(arr, cb, scope) {
+  if (Array.isArray(arr)) {
+    arr.forEach(cb, scope);
+  } else if (arr) {
+    cb.call(scope, arr);
+  }
+}
+```
+
+
+
 ## 从需求开始
 
 需要做一个弹窗`打开/关闭` 的功能，当点击 `button` 的时候打开，此时打开的情况下，点击弹窗区域外，就需要关闭（其实大多数情况是点击遮罩关闭，这里就没有遮罩了）。
@@ -207,10 +257,11 @@ function enqueuePutListener(inst, registrationName, listener, transaction) {
   var doc = isDocumentFragment
     ? containerInfo._node
     : containerInfo._ownerDocument
-  // 注册事件，将事件注册到document上
+  // 注册事件，将事件注册到document上，同一个事件类型只会被注册一次
   // registrationName 就是 propKey
   listenTo(registrationName, doc)
   // 存储事件,放入事务队列中
+  // mountReady之后将回调函数存在ListernBank中
   transaction.getReactMountReady().enqueue(putListener, {
     inst: inst,
     registrationName: registrationName,
@@ -450,7 +501,7 @@ function dispatchEventForPluginEventSystem(
 }
 ```
 
-`batchedEventUpdates()`批量更新，它的工作是把当前触发的事件放到了批处理队列中。**handleTopLevel 是事件分发的核心所在**
+`batchedEventUpdates()`批量更新，它的工作是把当前触发的事件放到了批处理队列中。**handleTopLevel 是事件分发的核心所在**：
 
 ```js
 // 主要作用就是在触发任何事件处理方法前先将祖先节点保存起来，防止后续的事件处理方法修改了DOM节点后导致与缓存的矛盾
@@ -463,12 +514,16 @@ function handleTopLevel(bookKeeping: BookKeepingInstance) {
   // inconsistencies with ReactMount's node cache. See #1105.
   // 循环遍历组件树，获取祖先节点，在触发任何事件处理方法之前先获取祖先节点非常重要，
   // 因为事件处理方法很可能会对DOM进行修改，导致跟React缓存的节点不一致
+  // 为什么要通过 do...while来多次寻找 root，其实也是为了应对特殊情况
+  // 一般情况下，每个应用只有一个 React实例，如果是这样，那么这里是不需要 do...while循环的，但是有些情况下，一个应用中不止存在一个 React应用
+  // 比如我在一个 React实例应用中，再次加入了一个 React实例应用，内层事件需要冒泡到外层根节点。
+  
   let ancestor = targetInst
   do {
     if (!ancestor) {
       // 没有祖先节点说明已经到达了顶部
       const ancestors = bookKeeping.ancestors
-      // 在末尾添加一个null表示已经到达了顶点
+      // 把 null 添加到ancestors末尾
       // ((ancestors as any) as Array<Fiber | null>).push(ancestor)
       ;((ancestors: any): Array<Fiber | null>).push(ancestor)
       break
@@ -487,6 +542,20 @@ function handleTopLevel(bookKeeping: BookKeepingInstance) {
     ancestor = getClosestInstanceFromNode(root)
   } while (ancestor)
 }
+
+function findRootContainerNode(inst) {
+  // TODO: It may be a good idea to cache this to prevent unnecessary DOM
+  // traversal, but caching is difficult to do correctly without using a
+  // mutation observer to listen for all DOM changes.
+  while (inst.return) {
+    inst = inst.return;
+  }
+  if (inst.tag !== HostRoot) {
+    // This can happen if we're in a detached tree.
+    return null;
+  }
+  return inst.stateNode.containerInfo;
+}
 ```
 
 英文注释讲的很清楚，主要就是**事件回调可能会改变 DOM 结构，所以要先遍历层次结构，以防存在任何嵌套的组件，然后缓存起来**。
@@ -496,6 +565,7 @@ function handleTopLevel(bookKeeping: BookKeepingInstance) {
 然后继续这个方法
 
 ```js
+// react-dom/src/events/ReactDOMEventListener.js
 for (let i = 0; i < bookKeeping.ancestors.length; i++) {
   targetInst = bookKeeping.ancestors[i]
   // getEventTarget上边有讲到
@@ -557,6 +627,7 @@ function extractPluginEvents(
   eventSystemFlags: EventSystemFlags
 ): Array<ReactSyntheticEvent> | ReactSyntheticEvent | null {
   let events = null
+  // 遍历插件
   for (let i = 0; i < plugins.length; i++) {
     // Not every plugin in the ordering may be loaded at runtime.
     const possiblePlugin: PluginModule<AnyNativeEvent> = plugins[i]
@@ -577,7 +648,7 @@ function extractPluginEvents(
 }
 ```
 
-首先会去遍历 `plugins`，相关代码在: [plugins 源码](https://github.com/facebook/react/blob/master/packages/legacy-events/EventPluginRegistry.js#L163)，这个 plugins 就是所有事件合成 plugins 的集合数组，这些 plugins 是在 `EventPluginHub` 初始化时候注入的：
+首先会去遍历 `plugins`，相关代码在: [plugins 源码](https://github.com/facebook/react/blob/master/packages/legacy-events/EventPluginRegistry.js#L163)，这个 plugins 就是所有**事件合成 plugin** 的集合数组，这些 plugins 是在 `EventPluginHub` 初始化时候注入的：
 
 ```js
 // 源码地址 : https://github.com/facebook/react/blob/master/packages/legacy-events/EventPluginHub.js#L80
@@ -616,7 +687,7 @@ if (extractedEvents) {
 }
 ```
 
-因为 **const possiblePlugin: PluginModule = plugins[i]**, 类型是 PluginModule，我们可以去 👉[SimpleEventPlugin 源码](https://github.com/facebook/react/blob/master/packages/react-dom/src/events/SimpleEventPlugin.js#L249)去看一下 `extractEvents` 到底干了啥
+因为 `const possiblePlugin: PluginModule = plugins[i]`, 类型是 PluginModule，我们可以去 👉[SimpleEventPlugin 源码](https://github.com/facebook/react/blob/master/packages/react-dom/src/events/SimpleEventPlugin.js#L249)去看一下 `extractEvents` 到底干了啥：
 
 ```js
 extractEvents: function() {
@@ -666,10 +737,11 @@ extractEvents: function() {
 }
 ```
 
-这一段代码的意思就是，从 event 对象池中取出合成事件，这里的 `getPooled()` 方法其实在在 `SyntheticEvent` 初始化的时候就被设置好了，我们来看一下代码
+这一段代码的意思就是，从 event 对象池中取出合成事件，这里的 `getPooled()` 方法其实在在 `SyntheticEvent` 初始化的时候就被设置好了：
 
 ```js
 function addEventPoolingTo(EventConstructor) {
+  // 初始化事件池
   EventConstructor.eventPool = []
   // 就是这里设置了getPooled
   EventConstructor.getPooled = getPooledEvent
@@ -686,7 +758,7 @@ SyntheticEvent.extend = function(Interface) {
 addEventPoolingTo(SyntheticEvent)
 ```
 
-`getPooled` 就是 `getPooledEvent`，那我们去看看`getPooledEvent`做了啥玩意
+可以看到 `getPooled` 就是 `getPooledEvent`，那我们去看看`getPooledEvent`做了啥玩意
 
 ```js
 function getPooledEvent(dispatchConfig, targetInst, nativeEvent, nativeInst) {
@@ -722,6 +794,7 @@ export function runEventsInBatch(
   events: Array<ReactSyntheticEvent> | ReactSyntheticEvent | null
 ) {
   if (events !== null) {
+    // accumulateInto(a,b) 用于合并a,b两元素，构成新的数组项后返回
     eventQueue = accumulateInto(eventQueue, events)
   }
 
@@ -745,9 +818,9 @@ export function runEventsInBatch(
 }
 ```
 
-这个方法首先会将当前需要处理的 events 事件，与之前没有处理完毕的队列调用 `accumulateInto` 方法按照顺序进行合并，组合成一个新的队列
+这个方法首先会将当前需要处理的 events 事件与之前没有处理完毕的队列，调用 `accumulateInto` 方法按照顺序进行合并，组合成一个新的队列
 
-如果`processingEventQueue`这个为空，gg，没有处理的事件，退出，否则调用 `forEachAccumulated()`，源码看这里: [forEachAccumulated 源码](https://github.com/facebook/react/blob/master/packages/legacy-events/forEachAccumulated.js#L19)
+如果`processingEventQueue`这个为空，没有处理的事件，退出，否则调用 `forEachAccumulated()`，源码看这里: [forEachAccumulated 源码](https://github.com/facebook/react/blob/master/packages/legacy-events/forEachAccumulated.js#L19)
 
 ```js
 function forEachAccumulated<T>(
@@ -763,22 +836,23 @@ function forEachAccumulated<T>(
 }
 ```
 
-这个方法就是先看下事件队列 `processingEventQueue` 是不是个数组，如果是数组，说明队列中不止一个事件，则遍历队列，调用 `executeDispatchesAndReleaseTopLevel`，否则说明队列中只有一个事件，则无需遍历直接调用即可
+这个方法就是先判断事件队列 `processingEventQueue` 是不是个数组，如果是数组，说明队列中不止一个事件，则遍历队列，调用 `executeDispatchesAndReleaseTopLevel`，否则说明队列中只有一个事件，则无需遍历直接调用即可
 
 📢 [executeDispatchesAndReleaseTopLevel 源码](https://github.com/facebook/react/blob/master/packages/legacy-events/EventBatching.js#L38)
 
 ```js
+const executeDispatchesAndReleaseTopLevel = function(e) {
+  return executeDispatchesAndRelease(e)
+}
 const executeDispatchesAndRelease = function(event: ReactSyntheticEvent) {
   if (event) {
+    // 在这里dispatch事件
     executeDispatchesInOrder(event)
-
+		// 查看这个合成事件是否需要被持久化，如果不需要就会释放这个合成事件
     if (!event.isPersistent()) {
       event.constructor.release(event)
     }
   }
-}
-const executeDispatchesAndReleaseTopLevel = function(e) {
-  return executeDispatchesAndRelease(e)
 }
 ```
 
@@ -805,7 +879,37 @@ export function executeDispatchesInOrder(event) {
 }
 ```
 
-首先对拿到的事件上挂载的 `dispatchListeners`，就是所有注册事件回调函数的集合，遍历这个集合，如果`event.isPropagationStopped() = ture`，ok，break 就好了，因为说明在此之前触发的事件已经调用 `event.stopPropagation()`，isPropagationStopped 的值被置为 true，当前事件以及后面的事件作为父级事件就不应该再被执行了
+首先对拿到的事件上挂载的 `dispatchListeners`，就是所有注册事件回调函数的集合，遍历这个集合，如果`event.isPropagationStopped() = ture`，break 就好了，因为说明在此之前触发的事件已经调用 `event.stopPropagation()`，isPropagationStopped 的值被置为 true，当前事件以及后面的事件作为父级事件就不应该再被执行了
 
-这里当 event.isPropagationStopped()为 true 时，中断合成事件的向上遍历执行，也就起到了和原生事件调用 stopPropagation 相同的效果 如果循环没有被中断，则继续执行 `executeDispatch` 方法，至于这个方法，源码地址献上: [executeDispatch 源码地址](https://github.com/facebook/react/blob/master/packages/legacy-events/EventPluginUtils.js#L66)
+这里当 event.isPropagationStopped()为 true 时，中断合成事件的向上遍历执行，也就起到了和原生事件调用 stopPropagation 相同的效果 如果循环没有被中断，则继续执行 `executeDispatch` 方法：
+
+```js
+function executeDispatch(event, simulated, listener, inst) {
+  var type = event.type || 'unknown-event';
+  // 注意这里将事件对应的dom元素绑定到了currentTarget上
+  event.currentTarget = EventPluginUtils.getNodeFromInstance(inst);
+  if (simulated) {
+    ReactErrorUtils.invokeGuardedCallbackWithCatch(type, listener, event);
+  } else {
+    // 一般都是非模拟的情况，执行invokeGuardedCallback
+    ReactErrorUtils.invokeGuardedCallback(type, listener, event);
+  }
+  event.currentTarget = null;
+}
+
+var fakeNode = document.createElement('react');
+ReactErrorUtils.invokeGuardedCallback = function (name, func, a) {
+  var boundFunc = function () {
+    func(a);
+  };
+  var evtType = 'react-' + name;
+  fakeNode.addEventListener(evtType, boundFunc, false);
+  var evt = document.createEvent('Event');
+  evt.initEvent(evtType, false, false);
+  fakeNode.dispatchEvent(evt);
+  fakeNode.removeEventListener(evtType, boundFunc, false);
+};
+```
+
+由`invokeGuardedCallback`可知，最后react调用了faked元素的`dispatchEvent`方法来触发事件，并且触发完毕之后立即移除监听事件。
 
