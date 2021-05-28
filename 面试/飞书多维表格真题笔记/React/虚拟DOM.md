@@ -280,7 +280,8 @@ function diffProps(oNode, nNode) {
 
   // 替换/新增属性
   // 遍历旧节点列表对比将改变的属性添加到 propsPatched 返回
-  // 这里的代码只能对比 nProps 里的属性，所以无法得知需要删除的属性是哪些
+  // 这里的代码只对比 nProps 里的属性
+  // 无法得知需要删除的属性是哪些，具体更新props的时候再处理。
   objForEach(nProps, key => {
     if (nProps[key] !== oProps[key] || !oProps.hasOwnProperty(key)) {
       !isChange && (isChange = true);
@@ -320,6 +321,7 @@ function diffChildren(oChildren, nChildren, index, patches, currentPatch) {
   let currentNodeIndex = index;
   aryForEach(oChildren, (_item, _index) => {
     const nChild = nChildren[_index];
+    // children以数组形式存放树
     currentNodeIndex =
       leftNode && leftNode.count
         ? currentNodeIndex + leftNode.count + 1
@@ -363,7 +365,7 @@ function dfsWalk(node, walker, patches) {
 }
 ```
 
-针对不同标志做对应处理
+针对不同标志做对应处理（调用不同的方法处理）
 
 ```js
 // 更新类型
@@ -404,11 +406,13 @@ function applyPatches(node, currentPatches) {
 // 修改属性
 function setProps(node, props) {
   objForEach(props, key => {
+    setAttr(node, key, props[key]);
+  });
+  // 移除不需要的旧属性
+  objForEach(node.props, key => {
     if (props[key] === void NOKEY) {
       // 假如没有对应的属性，直接删除node上面对应key的属性
       node.removeAttribute(key);
-    } else {
-      setAttr(node, key, props[key]);
     }
   });
 }
