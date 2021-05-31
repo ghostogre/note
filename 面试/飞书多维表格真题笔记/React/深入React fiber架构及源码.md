@@ -350,11 +350,11 @@ function workLoop(isYieldy) {
 
 ```js
 function performUnitOfWork(workInProgress) {
-    let next = beginWork(workInProgress);
+    let next = beginWork(workInProgress); // 返回子节点
     if (next === null) {
         next = completeUnitOfWork(workInProgress);
     }
-    return next;
+    return next; // 返回给workloop继续循环
 }
 
 function beginWork(workInProgress) {
@@ -381,11 +381,13 @@ function completeUnitOfWork(workInProgress) {
             // to perform work for this sibling
             return siblingFiber;
         } else if (returnFiber !== null) {
+          	// 兄弟节点遍历完毕，回溯到父节点
             // If there's no more work in this returnFiber,
             // continue the loop to complete the parent.
             workInProgress = returnFiber;
             continue;
         } else {
+          	// 直到回溯到root
             // We've reached the root.
             return null;
         }
@@ -397,4 +399,96 @@ function completeWork(workInProgress) {
     return null;
 }
 ```
+
+函数的核心就是一个大的 `while` 的循环。当 `workInProgress` 节点没有子节点时，React 会进入此函数。完成当前 Fiber 节点的工作后，它就会检查是否有同层节点。如果找的到，React 退出该函数并返回指向该同层节点的指针。它将被赋值给 `nextUnitOfWork` 变量，React将从这个节点开始执行分支的工作。我们需要着重理解的是，在当前节点上，React 只完成了前面的同层节点的工作。它尚未完成父节点的工作。**只有在完成以子节点开始的所有分支后，才能完成父节点和回溯的工作。**
+
+从实现中可以看出，`performUnitOfWork` 和 `completeUnitOfWork` 主要用于迭代目的，而主要活动则在 `beginWork` 和 `completeWork` 函数中进行。
+
+### `commit` 阶段
+
+这一阶段从函数 [completeRoot ](https://github.com/facebook/react/blob/95a313ec0b957f71798a69d8e83408f40e76765b/packages/react-reconciler/src/ReactFiberScheduler.js#L2306)开始。在这个阶段，React 更新 DOM 并调用变更生命周期之前及之后方法的地方。
+
+当 React 进入这个阶段时，它有 2 棵树和副作用列表。第一个树表示当前在屏幕上渲染的状态，然后在 `render` 阶段会构建一个备用树。它在源代码中称为 `finishedWork` 或 `workInProgress`，表示需要映射到屏幕上的状态。此备用树会用类似的方法通过 `child` 和 `sibling` 指针链接到 `current` 树。
+
+然后，有一个副作用列表 -- 它是 `finishedWork` 树的节点子集，通过 `nextEffect` 指针进行链接。需要记住的是，副作用列表是运行 `render` 阶段的*结果*。渲染的重点就是确定需要插入、更新或删除的节点，以及哪些组件需要调用其生命周期方法。这就是副作用列表告诉我们的内容，**它页正是在 `commit` 阶段迭代的节点集合。**
+
+出于调试目的，可以通过 Fiber 根的属性 `current `访问 `current` 树。可以通过 `current` 树中 `HostFiber` 节点的 `alternate` 属性访问 `finishedWork` 树。
+
+在 `commit` 阶段运行的主要函数是 [commitRoot ](https://github.com/facebook/react/blob/95a313ec0b957f71798a69d8e83408f40e76765b/packages/react-reconciler/src/ReactFiberScheduler.js#L523)。它执行如下下操作：
+
+- 在标记为 `Snapshot` 副作用的节点上调用 `getSnapshotBeforeUpdate` 生命周期
+- 在标记为 `Deletion` 副作用的节点上调用 `componentWillUnmount` 生命周期
+- 执行所有 DOM 插入、更新、删除操作
+- 将 `finishedWork` 树设置为 current
+- 在标记为 `Placement` 副作用的节点上调用 `componentDidMount` 生命周期
+- 在标记为 `Update` 副作用的节点上调用 `componentDidUpdate` 生命周期
+
+在调用变更前方法 `getSnapshotBeforeUpdate` 之后，React 会在树中提交所有副作用，这会通过两步操作来完成。第一波执行所有 DOM（宿主）插入、更新、删除和 ref 卸载，然后 React 将 `finishedWork` 树赋值给 `FiberRoot`。将 `workInProgress` 树标记为 `current` 树，这是在提交阶段的第一步之后、第二步之前完成的。因此在 `componentWillUnmount` 中前一个树仍然是 current，在 `componentDidMount/Update` 期间`finishedWork`是 current。第二步，React 调用所有其他生命周期方法和引用回调。这些方法单独传递执行，从而保证整个树中的所有放置、更新和删除能够被触发执行。
+
+以下是运行上述步骤的函数的要点：
+
+```js
+function commitRoot(root, finishedWork) {
+    commitBeforeMutationLifecycles()
+    commitAllHostEffects();
+    root.current = finishedWork;
+    commitAllLifeCycles();
+}
+```
+
+这些子函数中都实现了一个循环，该循环遍历副作用列表并检查副作用的类型。当它找到与函数目的相关的副作用时，就会执行。
+
+### 更新前的生命周期方法
+
+例如，这是在副作用树上遍历并检查节点是否具有 `Snapshot` 副作用的代码：
+
+```js
+function commitBeforeMutationLifecycles() {
+    while (nextEffect !== null) {
+        const effectTag = nextEffect.effectTag;
+        if (effectTag & Snapshot) {
+            const current = nextEffect.alternate;
+            commitBeforeMutationLifeCycles(current, nextEffect);
+        }
+        nextEffect = nextEffect.nextEffect;
+    }
+}
+```
+
+对于一个类组件，这一副作用意味着会调用 `getSnapshotBeforeUpdate` 生命周期方法。
+
+### DOM 更新
+
+[commitAllHostEffects](https://github.com/facebook/react/blob/95a313ec0b957f71798a69d8e83408f40e76765b/packages/react-reconciler/src/ReactFiberScheduler.js#L376) 是 React 执行 DOM 更新的函数。该函数基本上定义了节点需要完成的操作类型，并执行这些操作：
+
+```js
+function commitAllHostEffects() {
+    switch (primaryEffectTag) {
+        case Placement: {
+            commitPlacement(nextEffect);
+            ...
+        }
+        case PlacementAndUpdate: {
+            commitPlacement(nextEffect);
+            commitWork(current, nextEffect);
+            ...
+        }
+        case Update: {
+            commitWork(current, nextEffect);
+            ...
+        }
+        case Deletion: {
+            commitDeletion(nextEffect);
+            ...
+        }
+    }
+}
+```
+
+
+有趣的是，React 调用 `componentWillUnmount` 方法作为 `commitDeletion` 函数中删除过程的一部分。
+
+### 更新后的生命周期方法
+
+[commitAllLifecycles](https://github.com/facebook/react/blob/95a313ec0b957f71798a69d8e83408f40e76765b/packages/react-reconciler/src/ReactFiberScheduler.js#L465) 是 React 调用所有剩余生命周期方法的函数。在 React 的当前实现中，唯一会调用的变更方法就是 `componentDidUpdate`。
 
