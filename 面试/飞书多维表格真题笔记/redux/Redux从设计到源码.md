@@ -248,3 +248,24 @@ const store = createStore(reducer,{},applyMiddleware(…middlewares))
 由此的话我们可以推出中间件的写法：因为中间件是要多个首尾相连的，需要一层层的“加工”，所以要有个next方法来独立一层确保串联执行，另外dispatch增强后也是个dispatch方法，也要接收action参数，所以最后一层肯定是action。
 
 再者，中间件内部需要用到Store的方法，所以Store我们放到顶层，最后的结果就是：
+
+![](./images/middleware.png)
+
+看下一个比较常用的中间件redux－thunk源码，关键代码只有不到10行。
+
+![](./images/exampleMiddleware.png)
+
+如果当前action是个函数的话，return一个action执行，参数有dispatch和getState，否则返回给下个中间件。
+
+#### Q1：为什么要嵌套函数？为何不在一层函数中传递三个参数，而要在一层函数中传递一个参数，一共传递三层？
+
+因为中间件是要多个首尾相连的，对next进行一层层的“加工”，所以next必须独立一层。那么Store和action呢？Store的话，我们要在中间件顶层放上Store，因为我们要用Store的dispatch和getState两个方法。action的话，是因为我们封装了这么多层，其实就是为了作出更高级的dispatch方法，是dispatch，就得接受action这个参数。
+
+####  Q2：middlewareAPI中的dispatch为什么要用匿名函数包裹呢？
+
+我们用applyMiddleware是为了改造dispatch的，所以applyMiddleware执行完后，dispatch是变化了的，而middlewareAPI是applyMiddleware执行中分发到各个middleware，所以必须用匿名函数包裹dispatch，这样只要dispatch更新了，middlewareAPI中的dispatch应用也会发生变化。
+
+#### Q3: 在middleware里调用dispatch跟调用next一样吗？
+
+因为我们的dispatch是用匿名函数包裹，所以在中间件里执行dispatch跟其它地方没有任何差别，而执行next相当于调用下个中间件。
+
