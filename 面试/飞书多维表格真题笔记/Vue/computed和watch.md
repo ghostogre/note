@@ -234,7 +234,9 @@ function initComputed (vm: Component, computed: Object) {
       )
     }
     if (!isSSR) {
+      // 非服务端渲染的情况下
       // create internal watcher for the computed property.
+      // 这里是加入到 vm._computedWatchers 里
       watchers[key] = new Watcher(
         vm,
         getter || noop,
@@ -260,12 +262,13 @@ function initComputed (vm: Component, computed: Object) {
 
 如上代码，首先使用 `Object.create(null);` 创建一个空对象，分别赋值给 `watchers` 和 `vm._computedWatchers`。 接着执行判断是否是服务器渲染的代码。
 
-接着使用 for in 循环遍历 computed，接着判断 userDef 该值是否是一个函数，或者也可以是一个对象。当我们拿不到 computed 的getter的时候, vue会报出一个警告信息。
+接着使用 for in 循环遍历 computed，接着判断 userDef 该值是否是一个函数，或者也可以是一个对象。当我们拿不到 computed 的 getter 的时候, vue会报出一个警告信息。
 
 接着代码, 如下所示:
 
 ```js
 if (!isSSR) {
+  // 非服务端渲染
   // create internal watcher for the computed property.
   watchers[key] = new Watcher(
     vm,
@@ -339,20 +342,18 @@ export default class Watcher {
       options = {lazy: true};
       因此：
       // 如果deep为true的话，会对getter返回的对象再做一次深度的遍历
-      this.deep = !!options.deep;　即　this.deep = false; 
+      this.deep = !!options.deep;　这里即　this.deep = false; 
       // user 是用于标记这个监听是否由用户通过$watch调用的
-      this.user = !!options.user;　即: this.user = false;
+      this.user = !!options.user;　这里即: this.user = false;
       
       // lazy用于标记watcher是否为懒执行,该属性是给 computed data 用的，当 data 中的值更改的时候，不会立即计算 getter 
       // 获取新的数值，而是给该 watcher 标记为dirty，当该 computed data 被引用的时候才会执行从而返回新的 computed 
       // data，从而减少计算量。
+      this.lazy = !!options.lazy; 这里即: this.lazy = true;
       
-      this.lazy = !!options.lazy; 即: this.lazy = true;
-      
-      // 表示当 data 中的值更改的时候，watcher 是否同步更新数据，如果是 true，就会立即更新数值，否则在 nextTick 中更新。
-      
-      this.sync = !!options.sync; 即: this.sync = false;
-      this.before = options.before; 即: this.before = undefined;
+      // sync 表示当 data 中的值更改的时候，watcher 是否同步更新数据，如果是 true，就会立即更新数值，否则在 nextTick 中更新。
+      this.sync = !!options.sync; 这里即: this.sync = false;
+      this.before = options.before; 这里即: this.before = undefined;
     */
     if (options) {
       this.deep = !!options.deep
@@ -361,6 +362,7 @@ export default class Watcher {
       this.sync = !!options.sync
       this.before = options.before
     } else {
+      // 统一赋值为false
       this.deep = this.user = this.lazy = this.sync = false
     }
     // cb 为回调函数
@@ -382,7 +384,7 @@ export default class Watcher {
       : ''
     // parse expression for getter
     /*
-     判断expOrFn是否是一个函数, 如果是一个函数, 直接赋值给　this.getter;
+     判断expOrFn是否是一个函数, 如果是一个函数, 直接赋值给 this.getter ;
      否则的话, 它是一个表达式的话, 比如 'a.b.c' 这样的，因此调用　this.getter = parsePath(expOrFn); 
      parsePath函数的代码在：vue/src/core/util/lang.js 中。
     */
@@ -408,3 +410,295 @@ export default class Watcher {
 }
 ```
 
+因此如上代码执行完成后, 我们的 `vue/src/core/instance/state.js` 中的 `initComputed()` 函数中，如下这句代码执行后：
+
+```js
+watchers[key] = new Watcher(
+    vm,
+    getter || noop,
+    noop,
+    computedWatcherOptions
+);
+```
+
+`watchers["reversedMsg"]` 的值变为如下:
+
+> watchers 指向的是 `vm._computedWatchers`
+
+```js
+watchers["reversedMsg"] = {
+  active: true,
+  before: false,
+  cb: f noop(a, b, c) {},
+  deep: false,
+  depIds: Set,
+  deps: [],
+  dirty: true,
+  expression: 'reversedMsg() { return this.msg.split('').reverse().join('') }',
+  getter: f reversedMsg() { return this.msg.split('').reverse().join('') },
+  id: 1,
+  lazy: true,
+  newDepIds: Set,
+  newDeps: [],
+  sync: false,
+  user: false,
+  value: undefined,
+  vm: {
+    // Vue的实列对象
+  }
+};
+```
+
+现在我们再回到 `vue/src/core/instance/state.js` 中的 `initComputed()` 函数中，继续执行如下代码:
+
+```js
+// component-defined computed properties are already defined on the
+// component prototype. We only need to define computed properties defined
+// at instantiation here.
+// 如果 computed中的key没有在vｍ中, 则通过defineComputed挂载上去。第一次执行的时候, vm中没有该属性的
+if (!(key in vm)) {
+  defineComputed(vm, key, userDef)
+} else if (process.env.NODE_ENV !== 'production') {
+  // 如果我们的 computed中的key在data中或在props有同名的属性的话，则直接发出警告。
+  if (key in vm.$data) {
+    warn(`The computed property "${key}" is already defined in data.`, vm)
+  } else if (vm.$options.props && key in vm.$options.props) {
+    warn(`The computed property "${key}" is already defined as a prop.`, vm)
+  }
+}
+```
+
+现在我们继续查看 defineComputed 函数代码如下：
+
+```js
+const sharedPropertyDefinition = {
+  enumerable: true,
+  configurable: true,
+  get: noop,
+  set: noop
+}
+
+export function defineComputed (
+  target: any,
+  key: string,
+  userDef: Object | Function
+) {
+  const shouldCache = !isServerRendering()
+  if (typeof userDef === 'function') {
+    sharedPropertyDefinition.get = shouldCache
+      ? createComputedGetter(key)
+      : createGetterInvoker(userDef)
+    sharedPropertyDefinition.set = noop
+  } else {
+    sharedPropertyDefinition.get = userDef.get
+      ? shouldCache && userDef.cache !== false
+        ? createComputedGetter(key)
+        : createGetterInvoker(userDef.get)
+      : noop
+    sharedPropertyDefinition.set = userDef.set || noop
+  }
+  if (process.env.NODE_ENV !== 'production' &&
+      sharedPropertyDefinition.set === noop) {
+    sharedPropertyDefinition.set = function () {
+      warn(
+        `Computed property "${key}" was assigned to but it has no setter.`,
+        this
+      )
+    }
+  }
+  Object.defineProperty(target, key, sharedPropertyDefinition)
+}
+```
+
+如上代码, 首先执行 `const shouldCache = !isServerRendering();` 判断是不是服务器端渲染, 我们这边肯定不是的, 因此 shouldCache 为 true, 该参数的作用是否需要被缓存数据, 为 true 是需要被缓存的。也就是说我们的这里的computed 只要不是服务器端渲染的话, 默认会缓存数据的。
+
+接着会判断 userDef 是否是一个函数, 如果是函数的话，说明是我们的 computed 的用法。因此 sharedPropertyDefinition.get = createComputedGetter(key);` 的返回值。如果不是函数, 有可能就是表达式, 比如 watch 中的监听`'a.b.c'` 这样的话, 就执行 else 语句代码了。
+
+现在我们来看下 createComputedGetter 函数代码如下：
+
+```js
+/*
+ @param key = "reversedMsg"
+*/
+function createComputedGetter (key) {
+  return function computedGetter () {
+    const watcher = this._computedWatchers && this._computedWatchers[key]
+    if (watcher) {
+      if (watcher.dirty) {
+        watcher.evaluate()
+      }
+      if (Dep.target) {
+        watcher.depend()
+      }
+      return watcher.value
+    }
+  }
+}
+```
+
+因此 sharedPropertyDefinition.get 其实返回的是 computedGetter 函数的，即: `function computedGetter() {};`
+
+最后我们再回到 `export function defineComputed()` 函数代码中：执行代码：`Object.defineProperty(target, key, sharedPropertyDefinition)`; 使用 `Object.defineProperty` 来监听对象属性值的变化;
+
+```js
+/*
+ @param {target} vm实列对象
+ @param {key} "reversedMsg"
+ @param {sharedPropertyDefinition}
+ sharedPropertyDefinition = {
+   configurable: true,
+   enumerable: true,
+   get: function computedGetter () {
+      var watcher = this._computedWatchers && this._computedWatchers[key];
+      if (watcher) {
+        if (watcher.dirty) {
+          watcher.evaluate();
+        }
+        if (Dep.target) {
+          watcher.depend();
+        }
+        return watcher.value
+      }
+    },
+    set: function noop(a, b, c) {}
+ }
+*/
+Object.defineProperty(target, key, sharedPropertyDefinition);
+```
+
+如上代码我们可以看到, 我们会使用 `Object.defineProperty` 来监听Vue实列上的 reversedMsg 属性。然后会执行sharedPropertyDefinition 中的 get 或 set 函数的。因此只要我们的 data 对象中的某个属性发生改变的话, 我们的reversedMsg 方法中依赖了该属性的话, 也会调用 sharedPropertyDefinition 方法中的 get/set 方法的。
+但是在我们的页面第一次初始化的时候, 我们要如何初始化执行 computed 中的对应方法呢？
+因此我们现在需要再回到 `vue/src/core/instance/init.js` 中的 _init() 方法中，接着需要看下面的代码:
+
+```js
+Vue.prototype._init = function (options?: Object) {
+  ...... 更多的代码已省略
+  /*
+   vm = {
+     $attrs: {},
+     $children: [],
+     $listeners: {},
+     $options: {
+       components: {},
+       computed: {
+         reversedMsg: f reversedMsg(){}
+       },
+       data: function mergedInstanceDataFn () {
+          .....
+      　},
+       el: '#app',
+       ..... 更多参数
+     }
+   };
+  */
+  if (vm.$options.el) {
+    vm.$mount(vm.$options.el)
+  }
+  ...... 更多的代码已省略
+}
+```
+
+因此执行 `vm.mount(vm.mount(vm.options.el); ` 这句代码了。该代码的作用是对我们的页面中的模板进行编译操作。
+该代码在 `vue/src/platforms/web/entry-runtime-with-compiler.js` 中。具体的内部代码我们先不看, 我们只需要看该js中的最后一句代码即可，如下代码:
+
+```js
+const mount = Vue.prototype.$mount
+Vue.prototype.$mount = function (
+  el?: string | Element,
+  hydrating?: boolean
+  ): Component{
+  ..... 省略很多很多代码
+  return mount.call(this, el, hydrating);
+}
+```
+
+最后一句代码, 会调用 `mount.call(this, el, hydrating);` 这句代码; 因此会找到 `vue/src/platforms/web/runtime/index.js` 中的代码:
+
+```js
+Vue.prototype.$mount = function (
+  el?: string | Element,
+  hydrating?: boolean
+): Component {
+  el = el && inBrowser ? query(el) : undefined
+  return mountComponent(this, el, hydrating)
+}
+```
+
+接着执行代码 `mountComponent(this, el, hydrating);` 会找到 `vue/src/core/instance/lifecycle.js` 中代码
+
+```js
+export function mountComponent() {
+  /** ..... 省略很多代码 */
+
+  new Watcher(vm, updateComponent, noop, {
+    before () {
+      if (vm._isMounted && !vm._isDestroyed) {
+        callHook(vm, 'beforeUpdate')
+      }
+    }
+  }, true /* isRenderWatcher */)
+
+  /** .... 省略很多代码 */
+}
+```
+
+在这里我们就可以看到, 我们对Watcher进行实列化了 `new Watcher();`， 因此我们又回到了`vue/src/core/observer/watcher.js` 中对代码进行初始化：
+
+```js
+export default class Watcher {
+  /** .... 省略很多代码 */
+  constructor() {
+    /** .... 省略很多代码 */
+    this.value = this.lazy　? undefined　: this.get();
+  }
+}
+```
+
+此时`this.lazy = false;` 因此会执行 `this.get()` 函数, 该函数代码如下：
+
+```js
+get () {
+  pushTarget(this)
+  let value
+  const vm = this.vm
+  try {
+    value = this.getter.call(vm, vm)
+  } catch (e) {
+    if (this.user) {
+      handleError(e, vm, `getter for watcher "${this.expression}"`)
+    } else {
+      throw e
+    }
+  } finally {
+    // "touch" every property so they are all tracked as
+    // dependencies for deep watching
+    if (this.deep) {
+      traverse(value)
+    }
+    popTarget()
+    this.cleanupDeps()
+  }
+  return value
+}
+```
+
+也就是说执行了 `this.getter.call(vm, vm)` 方法; 最后就执行到 `vue/src/core/instance/state.js` 中如下代码:
+
+```js
+function createComputedGetter (key) {
+  return function computedGetter () {
+    const watcher = this._computedWatchers && this._computedWatchers[key]
+    if (watcher) {
+      if (watcher.dirty) {
+        watcher.evaluate()
+      }
+      if (Dep.target) {
+        watcher.depend()
+      }
+      return watcher.value
+    }
+  }
+}
+```
+
+因此最后就返回 watcher.value 值了, 就是我们的computed的reversedMsg返回的值了。如上就是整个computed执行的过程，它最主要也是通过事件的发布-订阅模式来监听对象数据的变化实现的。
