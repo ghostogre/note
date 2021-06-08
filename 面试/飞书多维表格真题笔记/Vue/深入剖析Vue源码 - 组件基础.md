@@ -42,3 +42,82 @@ var vm = new Vue({
 
 当只需要在某个局部用到某个组件时，可以使用局部注册的方式进行组件注册，此时局部注册的组件只能在注册该组件内部使用。
 
+##### 注册过程
+
+来看注册过程到底发生了什么，我们以全局组件注册为例，它通过`Vue.component(name, {...})`进行组件注册，`Vue.component`是在`Vue`源码引入阶段定义的静态方法。
+
+```js
+/** src/core/global-api/index.js */
+initUse(Vue)
+initMixin(Vue)
+initExtend(Vue)
+// 初始化全局api
+initAssetRegisters(Vue);
+
+/** shared/constants */
+var ASSET_TYPES = [
+    'component',
+    'directive',
+    'filter'
+];
+
+/** vue/src/core/global-api/assets.js */
+function initAssetRegisters(Vue){
+    // 定义ASSET_TYPES中每个属性的方法，其中包括component
+    ASSET_TYPES.forEach(function (type) {
+    // type: component,directive,filter
+      Vue[type] = function (id,definition) {
+          if (!definition) {
+            // 直接返回注册组件的构造函数
+            return this.options[type + 's'][id]
+          }
+          ...
+          if (type === 'component') {
+            // 验证component组件名字是否合法
+            validateComponentName(id);
+          }
+          if (type === 'component' && isPlainObject(definition)) {
+            // 组件名称设置
+            definition.name = definition.name || id;
+            // Vue.extend() 创建子组件，返回子类构造器
+            definition = this.options._base.extend(definition);
+          }
+          // 为Vue.options 上的component属性添加将子类构造器
+          this.options[type + 's'][id] = definition;
+          return definition
+        }
+    });
+}
+```
+
+`Vue.components`有两个参数，一个是需要注册组件的组件名，另一个是组件选项，如果第二个参数没有传递，则会直接返回注册过的组件选项。否则意味着需要对该组件进行注册，注册过程先会对组件名的合法性进行检测，要求组件名不允许出现非法的标签，包括`Vue`内置的组件名，如`slot, component`等。
+
+```js
+function validateComponentName(name) {
+    if (!new RegExp(("^[a-zA-Z][\\-\\.0-9_" + (unicodeRegExp.source) + "]*$")).test(name)) {
+      // 正则判断检测是否为非法的标签
+      warn(
+        'Invalid component name: "' + name + '". Component names ' +
+        'should conform to valid custom element name in html5 specification.'
+      );
+    }
+    // 不能使用Vue自身自定义的组件名，如slot, component,不能使用html的保留标签，如 h1, svg等
+    if (isBuiltInTag(name) || config.isReservedTag(name)) {
+      warn(
+        'Do not use built-in or reserved HTML elements as component ' +
+        'id: ' + name
+      );
+    }
+  }
+```
+
+在经过组件名的合法性检测后，会调用`extend`方法为组件创建一个子类构造器，此时的`this.options._base`代表的就是`Vue`构造器。`extend` 会**基于父类去创建一个子类**，此时的父类是`Vue`，并且创建过程子类会继承父类的方法，并会和父类的选项进行合并，最终返回一个子类构造器。
+
+代码处还有一个逻辑，`Vue.component()`默认会把第一个参数作为组件名称，但是如果组件选项有`name`属性时，`name`属性值会将组件名覆盖。
+
+**总结起来，全局注册组件就是`Vue`实例化前创建一个基于`Vue`的子类构造器，并将组件的信息加载到实例`options.components`对象中。**
+
+### 组件Vnode创建
+
+该作者的上一篇文章（[作者掘金](https://juejin.cn/user/1574156379623774)）介绍过`Vue`将一个模板通过`render`函数的转换，最终生成一个`Vnode tree`。在不包含组件的情况下，`_render`函数的最后一步是直接调用`new Vnode`去创建一个完整的`Vnode tree`。然而有一大部分的分支我们并没有分析，那就是遇到组件占位符的场景。执行阶段如果遇到组件，处理过程要比想像中复杂得多，我们通过一张流程图展开分析。
+
