@@ -44,7 +44,7 @@ var vm = new Vue({
 
 ##### 注册过程
 
-来看注册过程到底发生了什么，我们以全局组件注册为例，它通过`Vue.component(name, {...})`进行组件注册，`Vue.component`是在`Vue`源码引入阶段定义的静态方法。
+来看注册过程到底发生了什么，我们以全局组件注册为例，它通过`Vue.component(name, {...})`进行组件注册，`Vue.component`是在`Vue`源码引入阶段定义的静态方法：
 
 ```js
 /** src/core/global-api/index.js */
@@ -63,12 +63,13 @@ var ASSET_TYPES = [
 
 /** vue/src/core/global-api/assets.js */
 function initAssetRegisters(Vue){
-    // 定义ASSET_TYPES中每个属性的方法，其中包括component
+    // 定义ASSET_TYPES中每个属性的方法，其中包括Vue.component
     ASSET_TYPES.forEach(function (type) {
     // type: component,directive,filter
       Vue[type] = function (id,definition) {
           if (!definition) {
             // 直接返回注册组件的构造函数
+            // 返回组件实例options里对应名称的属性
             return this.options[type + 's'][id]
           }
           ...
@@ -119,5 +120,47 @@ function validateComponentName(name) {
 
 ### 组件Vnode创建
 
-该作者的上一篇文章（[作者掘金](https://juejin.cn/user/1574156379623774)）介绍过`Vue`将一个模板通过`render`函数的转换，最终生成一个`Vnode tree`。在不包含组件的情况下，`_render`函数的最后一步是直接调用`new Vnode`去创建一个完整的`Vnode tree`。然而有一大部分的分支我们并没有分析，那就是遇到组件占位符的场景。执行阶段如果遇到组件，处理过程要比想像中复杂得多，我们通过一张流程图展开分析。
+该作者的上一篇文章（[作者掘金](https://juejin.cn/user/1574156379623774)）介绍过`Vue`将一个模板通过`_render`函数的转换，最终生成一个`Vnode tree`。在不包含组件的情况下，`_render`函数的最后一步是直接调用`new Vnode`去创建一个完整的`Vnode tree`。然而有一大部分的分支我们并没有分析，那就是遇到组件占位符的场景。执行阶段如果遇到组件，处理过程要比想像中复杂得多，我们通过一张流程图展开分析。
+
+##### Vnode创建流程图
+
+![](./images/vnode.png)
+
+##### 具体流程分析
+
+我们结合实际的例子对照着流程图分析一下这个过程：
+
+- 场景
+
+  ```js
+  Vue.component('test', {
+    template: '<span></span>'
+  })
+  var vm = new Vue({
+    el: '#app',
+    template: '<div><test></test></div>'
+  })
+  ```
+
+- 父`render`函数
+
+  ```js
+  function() {
+    with(this){return _c('div',[_c('test')],1)}
+  }
+  ```
+
+  
+
+- `Vue`根实例初始化会执行 `vm.$mount(vm.$options.el)`实例挂载的过程，按照之前的逻辑，完整流程会经历`render`函数生成`Vnode`,以及`Vnode`生成真实`DOM`的过程。
+
+- `render`函数生成`Vnode`过程中，子会优先父执行生成`Vnode`过程,也就是`_c('test')`函数会先被执行。`'test'`会先判断是普通的`html`标签还是组件的占位符。
+
+  如果为一般标签，会执行`new Vnode`过程；如果是组件的占位符，则会在判断组件已经被注册过的前提下进入`createComponent`创建子组件`Vnode`的过程。
+
+- `createComponent`是创建组件`Vnode`的过程，创建过程会再次合并选项配置，并安装组件相关的内部钩子(后面文章会再次提到内部钩子的作用)，最后通过`new Vnode()`生成以`vue-component`开头的`Virtual DOM`
+
+- `render`函数执行过程也是一个循环递归调用创建`Vnode`的过程，执行3，4步之后，完整的生成了一个包含各个子组件的`Vnode tree`
+
+
 
