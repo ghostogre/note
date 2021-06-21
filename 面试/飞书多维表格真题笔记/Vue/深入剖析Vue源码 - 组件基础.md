@@ -142,7 +142,7 @@ function validateComponentName(name) {
   })
   ```
 
-- 父`render`函数
+- 父组件`render`函数
 
   ```js
   function() {
@@ -162,5 +162,5 @@ function validateComponentName(name) {
 
 - `render`函数执行过程也是一个循环递归调用创建`Vnode`的过程，执行3，4步之后，完整的生成了一个包含各个子组件的`Vnode tree`
 
-
+`_createElement`函数组件相关的操作：
 
