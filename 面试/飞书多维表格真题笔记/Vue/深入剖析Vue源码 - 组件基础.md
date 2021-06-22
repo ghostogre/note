@@ -296,7 +296,7 @@ function mergeHook$1 (f1, f2) {
 
 ### 局部注册和全局注册的区别
 
-局部注册的原理很简单，我们使用局部注册组件时会通过在父组件选项配置中的`components`添加子组件的对象配置，这和全局注册后在`Vue`的`options.component`添加子组件构造器的结果很相似。
+局部注册的原理很简单，我们使用局部注册组件时会通过在父组件选项配置中的`components`添加子组件的对象配置（仔细回想我们编写Vue组件，**export的是一个对象**），这和全局注册后在`Vue`的`options.component`添加子组件构造器的结果很相似。
 
 区别在于：
 
@@ -306,6 +306,7 @@ function mergeHook$1 (f1, f2) {
 因此局部注册中缺少了一步构建子类构造器的过程，这个过程放在哪里进行呢？ 回到`createComponent`的源码，源码中根据选项是对象还是函数来区分局部和全局注册组件，**如果选项的值是对象，则该组件是局部注册的组件，此时在创建子`Vnode`时会调用 父类的`extend`方法去创建一个子类构造器。**
 
 ```js
+// src/core/vdom/create-component.js
 function createComponent (...) {
   ...
   var baseCtor = context.$options._base;
@@ -360,22 +361,50 @@ function createChildren(vnode, children, insertedVnodeQueue) {
 `init`钩子做的事情只有两个，**实例化组件构造器，执行子组件的挂载流程**：
 
 ```js
+// src/core/vdom/patch.js
 function createComponent (vnode, insertedVnodeQueue, parentElm, refElm) {
   var i = vnode.data;
-  // 是否有钩子函数可以作为判断是否为组件的唯一条件
-  if (isDef(i = i.hook) && isDef(i = i.init)) {
-    // 执行init钩子函数
-    i(vnode, false /* hydrating */);
+  if (isDef(i)) {
+    // 是否有钩子函数可以作为判断是否为组件的唯一条件，hook和init存在的情况下进入下面的条件
+    if (isDef(i = i.hook) && isDef(i = i.init)) {
+      // 执行init钩子函数
+      i(vnode, false /* hydrating */);
+    }
+    if (isDef(vnode.componentInstance)) {
+      initComponent(vnode, insertedVnodeQueue)
+      insert(parentElm, vnode.elm, refElm)
+      if (isTrue(isReactivated)) {
+        reactivateComponent(vnode, insertedVnodeQueue, parentElm, refElm)
+      }
+      return true
+    }
   }
-  // ···
 }
 var componentVNodeHooks = {
-  // 忽略keepAlive过程
-  // 实例化
-  var child = vnode.componentInstance = createComponentInstanceForVnode(vnode,activeInstance);
-  // 挂载
-  child.$mount(hydrating ? vnode.elm : undefined, hydrating);
+  init (vnode: VNodeWithData, hydrating: boolean): ?boolean {
+    if (
+      vnode.componentInstance &&
+      !vnode.componentInstance._isDestroyed &&
+      vnode.data.keepAlive
+    ) {
+      // kept-alive components, treat as a patch
+      // 忽略keepAlive过程
+      const mountedNode: any = vnode // work around flow
+      componentVNodeHooks.prepatch(mountedNode, mountedNode)
+    } else {
+      // 实例化
+      const child = vnode.componentInstance = createComponentInstanceForVnode(
+        vnode,
+        activeInstance
+      )
+      // 挂载
+      child.$mount(hydrating ? vnode.elm : undefined, hydrating)
+    }
+  },
+  // ...
 }
+
+// 上面init里面的实例化
 function createComponentInstanceForVnode(vnode, parent) {
   // ···
   // 实例化Vue子组件实例
@@ -444,4 +473,3 @@ function initLifecycle (vm) {
 ### 总结
 
 `Vue`中我们可以定义全局的组件，也可以定义局部的组件，全局组件需要进行全局注册，核心方法是`Vue.component`,他需要在根组件实例化前进行声明注册，原因是我们需要在实例化前拿到组件的配置信息并合并到`options.components`选项中。注册的本质是调用`extend`创建一个子类构造器，全局和局部的不同是局部创建子类构造器是发生在创建子组件`Vnode`阶段。而创建子`Vnode`阶段最关键的一步是定义了很多内部使用的钩子。有了一个完整的`Vnode tree`接下来会进入真正`DOM`的生成，在这个阶段如果遇到子组件`Vnode`会进行子构造器的实例化，并完成子组件的挂载。递归完成子组件的挂载后，最终才又回到根组件的挂载。
-
