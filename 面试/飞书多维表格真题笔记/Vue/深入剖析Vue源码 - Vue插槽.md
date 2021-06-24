@@ -346,6 +346,8 @@ with(this){return _c('div',{attrs:{"id":"app"}},[_c('child',{scopedSlots:_u([{ke
 ```js
 	// vnode生成阶段针对具名插槽的处理 _u
 	// (target._u = resolveScopedSlots)
+  // 这里fns就是上面的：[{key:"header",fn:function(){return [_c('span',[_v("头部")])]},proxy:true},{key:"footer",fn:function(){return [_c('span',[_v("底部")])]}, proxy:true}]
+	// res 为 null
   function resolveScopedSlots (fns,res,hasDynamicKeys,contentHashKey) {
     res = res || { $stable: !hasDynamicKeys };
     for (var i = 0; i < fns.length; i++) {
@@ -368,4 +370,136 @@ with(this){return _c('div',{attrs:{"id":"app"}},[_c('child',{scopedSlots:_u([{ke
     return res
   }
 ```
+
+最终父组件的`vnode`节点的`data`属性上多了`scopedSlots`数组。**回顾一下，具名插槽和普通插槽实现上有明显的不同，普通插槽是以`componentOptions.child`的形式保留在父组件中，而具名插槽是以`scopedSlots`属性的形式存储到`data`属性中。**
+
+```js
+// vnode
+{
+  scopedSlots: [{
+    'header': fn,
+    'footer': fn
+  }]
+}
+```
+
+##### 子组件渲染Vnode过程
+
+子组件在解析成`AST`树阶段的不同，在于对`slot`标签的`name`属性的解析，而在`render`生成`Vnode`过程中，`slot`的规范化处理针对具名插槽会进行特殊的处理，回到`normalizeScopedSlots`的代码
+
+```js
+vm.$scopedSlots = normalizeScopedSlots(
+  _parentVnode.data.scopedSlots, // 此时的第一个参数会拿到父组件插槽相关的数据（如上所述居名插槽存储在data里
+  vm.$slots, // 记录父组件的插槽内容
+  vm.$scopedSlots
+);
+```
+
+最终子组件实例上的`$scopedSlots`属性会携带父组件插槽相关的内容。
+
+```js
+// 子组件Vnode
+{
+  $scopedSlots: [{
+    'header': f,
+    'footer': f
+  }]
+}
+```
+
+##### 子组件渲染真实dom
+
+和普通插槽类似，子组件渲染真实节点的过程会执行子`render`函数中的`_t`方法（也就是 renderSlot 方法），但是具名称插槽的源码会和普通插槽走不同的分支，其中`this.$scopedSlots`根据上面分析会记录着父组件插槽内容相关的数据，所以会和普通插槽走不同的分支。而最终的核心是执行`nodes = scopedSlotFn(props)`,也就是执行`function(){return [_c('span',[_v("头部")])]}`，具名插槽之所以是函数的形式执行而不是直接返回结果，我们在后面揭晓：
+
+```js
+  function renderSlot (
+    name,
+    fallback, // slot插槽后备内容
+    props, // 子传给父的值
+    bindObject
+  ) {
+    var scopedSlotFn = this.$scopedSlots[name];
+    var nodes;
+    // 针对具名插槽，特点是$scopedSlots有值
+    if (scopedSlotFn) { // scoped slot
+      props = props || {};
+      if (bindObject) {
+        if (!isObject(bindObject)) {
+          warn('slot v-bind without argument expects an Object',this);
+        }
+        props = extend(extend({}, bindObject), props);
+      }
+      // 执行时将子组件传递给父组件的值传入fn
+      nodes = scopedSlotFn(props) || fallback;
+    }
+    // ···
+  }
+```
+
+子组件通过`slotName`找到了对应父组件的插槽内容。
+
+### 作用域插槽
+
+我们可以利用作用域插槽让父组件的插槽内容访问到子组件的数据，具体的用法是在子组件中以属性的方式记录在子组件中，父组件通过`v-slot:[name]=[props]`的形式拿到子组件传递的值。子组件`<slot>`元素上的特性称为**插槽`Props`**,另外，vue2.6 以后的版本已经弃用了`slot-scoped`，采用`v-slot`代替。
+
+```js
+var child = {
+  template: `<div><slot :user="user"></div>`,
+  data() {
+    return {
+      user: {
+        firstname: 'test'
+      }
+    }
+  }
+}
+var vm = new Vue({
+  el: '#app',
+  components: {
+    child
+  },
+  template: `<div id="app"><child><template v-slot:default="slotProps">{{slotProps.user.firstname}}</template></child></div>`
+})
+```
+
+##### 父组件编译阶段
+
+作用域插槽和具名插槽在父组件的用法基本相同，区别在于`v-slot`定义了一个插槽`props`的名字，参考对于具名插槽的分析，生成`render`函数阶段`fn`函数会携带`props`参数传入。即： `with(this){return _c('div',{attrs:{"id":"app"}},[_c('child',{scopedSlots:_u([{key:"default",fn:function(slotProps){return [_v(_s(slotProps.user.firstname))]}}])})],1)}`
+
+##### 子组件渲染
+
+在子组件编译阶段，`:user="user"`会以属性的形式解析，最终在`render`函数生成阶段以对象参数的形式传递`_t`函数。 `with(this){return _c('div',[_t("default",null,{"user":user})],2)}`
+
+子组件渲染Vnode阶段，根据前面分析会执行`renderSlot`函数，这个函数前面分析过，对于作用域插槽的处理，集中体现在函数传入的第三个参数。
+
+```js
+// 渲染slot组件vnode
+function renderSlot(
+  name,
+  fallback,
+  props, // 子传给父的值 { user: user }
+  bindObject
+) {
+    // scopedSlotFn拿到父组件插槽的执行函数，默认slotname为default
+    var scopedSlotFn = this.$scopedSlots[name];
+    var nodes;
+    // 具名插槽分支
+    if (scopedSlotFn) { // scoped slot
+      props = props || {};
+      if (bindObject) {
+        if (!isObject(bindObject)) {
+          warn(
+            'slot v-bind without argument expects an Object',
+            this
+          );
+        }
+        // 合并props
+        props = extend(extend({}, bindObject), props);
+      }
+      // 执行时将子组件传递给父组件的值传入fn
+      nodes = scopedSlotFn(props) || fallback;
+    }
+```
+
+最终将子组件的插槽`props`作为参数传递给执行函数执行。**回过头看看为什么具名插槽是函数的形式执行而不是直接返回结果。学完作用域插槽我们发现这就是设计巧妙的地方，函数的形式让执行过程更加灵活，作用域插槽只需要以参数的形式将插槽`props`传入便可以得到想要的结果。**
 
