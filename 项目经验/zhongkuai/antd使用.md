@@ -173,5 +173,7 @@ table 的 render 可以返回一个数组，渲染的时候会自动调整数组
 
 - V3 的 Upload 单图上传和 form ，目前只能把图放到 state 里面去控制展示。如果使用了 `getFieldDecorator` 的话，表单会和 Upload 双向绑定，而 Upload 没有value会导致报错。假如设置成 fileList（字符串数组）的话，和我们的单图（字符串）会因为类型不同产生bug。虽然我们可以通过在 form 获取值的方法里面把单图转换单个字符串的数组。V3 版本提供了 `validateStatus` `help` `hasFeedback` 等属性，可以不需要使用 `Form.create` 和 `getFieldDecorator`，自己定义校验的时机和内容。
 
+- 在后台配置实现一个类似手机模拟器的效果，模拟器高度需要我们计算出内容区域高度，然后根据16：9计算出宽度，页面 100vh 这样就能保证无论页面只有模拟器内有滚动条。模拟器内部我们使用 sticky 布局可以实现吸底的按钮栏。
+
 - less 中，由于 less 的计算方式跟 calc 方法有重叠，两者在一起有冲突。我们写的 calc 里的算式会被 less 计算掉，所以我们需要使用 `div {width : calc(~"100% - 30px");}` 这样的写法。
 
