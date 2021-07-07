@@ -159,3 +159,19 @@ table 的 render 可以返回一个数组，渲染的时候会自动调整数组
 
 > [文档](https://beta-pro.ant.design/docs/upgrade-v5-cn#initialstate)
 
+## V3版本开发
+
+- V3版本的 antd 的 form 获取实例，在 class 组件里目前我只能通过给组件包装 `Form.create({})(Component)` 然后从 props 里获取到。而且假如页面里有多个form，比如 modal 里有表单的话，我们只能把modal里的表单包装成组件然后同样使用 `Form.create` 包裹在组件内部。
+
+  ```jsx
+  Form.create({})(ModalComponent);
+  
+  <ModalComponent wrappedComponentRef={(form) => this.modalForm = form}></ModalComponent>
+  ```
+
+  然后我们就可以通过 `this.modalForm.props.form` 获取到组件实例。
+
+- V3 的 Upload 单图上传和 form ，目前只能把图放到 state 里面去控制展示。如果使用了 `getFieldDecorator` 的话，表单会和 Upload 双向绑定，而 Upload 没有value会导致报错。假如设置成 fileList（字符串数组）的话，和我们的单图（字符串）会因为类型不同产生bug。虽然我们可以通过在 form 获取值的方法里面把单图转换单个字符串的数组。V3 版本提供了 `validateStatus` `help` `hasFeedback` 等属性，可以不需要使用 `Form.create` 和 `getFieldDecorator`，自己定义校验的时机和内容。
+
+- less 中，由于 less 的计算方式跟 calc 方法有重叠，两者在一起有冲突。我们写的 calc 里的算式会被 less 计算掉，所以我们需要使用 `div {width : calc(~"100% - 30px");}` 这样的写法。
+
