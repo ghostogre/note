@@ -175,5 +175,7 @@ table 的 render 可以返回一个数组，渲染的时候会自动调整数组
 
 - 在后台配置实现一个类似手机模拟器的效果，模拟器高度需要我们计算出内容区域高度，然后根据16：9计算出宽度，页面 100vh 这样就能保证无论页面只有模拟器内有滚动条。模拟器内部我们使用 sticky 布局可以实现吸底的按钮栏。
 
+- 3.x以上版本使用 Upload 组件报错：`Unknown props `directory`, `webkitdirectory` on <input> tag`，官方解答：`Please upgrade to react 16`。
+
 - less 中，由于 less 的计算方式跟 calc 方法有重叠，两者在一起有冲突。我们写的 calc 里的算式会被 less 计算掉，所以我们需要使用 `div {width : calc(~"100% - 30px");}` 这样的写法。
 
