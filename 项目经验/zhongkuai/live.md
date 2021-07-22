@@ -204,3 +204,7 @@ resetLayoutByDp: function (couponList) {
 
 ## 生成海报
 
+使用 taro-plugin-canvas 进行海报的绘制，这个插件默认绘制到屏幕外。如果我们需要显示可以使用手动绘制DOM（展示的DOM是我们自己写的，操作的图片是 canvas 根据我们配置绘制的，因为canvas的图展示的时候可能因为缩小而导致模糊。而且如果是多个海报类型供其横向滑动选择的情况下，我们不能每次都绘制好再展示），也可以使用组件 onCreateSuccess 事件返回的图片URL直接进行展示，实际保存图片和操作图片操作的其实是 canvas。
+
+PS. 配置绘制 text 的时候，设置 width 就可以实现超出省略，假如设置 lineNum 可以达到设置多行溢出省略的效果。
+
