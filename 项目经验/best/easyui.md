@@ -12,3 +12,7 @@
 
 4. [datagrids 的 valueType](https://blog.csdn.net/weixin_44101779/article/details/103304881)
 
+5. easyui的分页控件，只是给你个样式，功能是要自己写的。要分页，要用到“分页查询” 查询，返回你一页所需的显示条数。也就是说如果接口返回的不是所需的条数照样会显示而不会分页。
+
+
+
