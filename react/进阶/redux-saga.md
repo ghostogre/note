@@ -1,8 +1,8 @@
-## 对比redux-thunk
+## redux-thunk
 
-**redux-thunk** 的使用与缺点
+### **redux-thunk** 的使用与缺点
 
-**thunk**是**redux**作者给出的中间件，实现极为简单，10多行代码：
+**thunk**是**redux**作者给出的中间件，其实就是一个延迟调用的函数，实现极为简单，10多行代码：
 
 ```js
 function createThunkMiddleware(extraArgument) {
